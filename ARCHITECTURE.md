@@ -75,11 +75,100 @@ Tracks user actions:
 
 ---
 
-## 4. UI Screens Plan
-- **Login (`/login`):** Email, password, and sign-in button.
-- **Register (`/register`):** Name, email, password, and role selection.
-- **Password Reset (`/reset-password`):** Simple form to request a reset link.
-- **Dashboard (`/dashboard`):** 
-  - Sidebar with navigation and storage space indicator.
-  - Top bar with search and profile menu.
-  - Main area with an "Upload File" button and a table showing uploaded files (name, size, type, upload date).
+## 4. UI Wireframes & Layout Specifications
+
+### Wireframe 1: User Login (`/login`)
++-------------------------------------------------------------+
+|                        TrustShare                           |
+|                  Secure File Collaboration                  |
++-------------------------------------------------------------+
+|                                                             |
+|                    +---------------------+                  |
+|                    |     Sign In         |                  |
+|                    +---------------------+                  |
+|                    | Email Address:      |                  |
+|                    | [ user@example.com] |                  |
+|                    |                     |                  |
+|                    | Password:           |                  |
+|                    | [ ****************] |                  |
+|                    |                     |                  |
+|                    | [ ] Remember me     |                  |
+|                    | [  Sign In Button ] |                  |
+|                    |                     |                  |
+|                    | Forgot Password?    |                  |
+|                    | Don't have account? |                  |
+|                    | [Create Account]    |                  |
+|                    +---------------------+                  |
+|                                                             |
++-------------------------------------------------------------+
+
+### Wireframe 2: Account Registration (`/register`)
++-------------------------------------------------------------+
+|                        TrustShare                           |
++-------------------------------------------------------------+
+|                                                             |
+|                    +---------------------+                  |
+|                    |   Create Account    |                  |
+|                    +---------------------+                  |
+|                    | Full Name:          |                  |
+|                    | [ Alice           ] |                  |
+|                    |                     |                  |
+|                    | Email Address:      |                  |
+|                    | [ user@example.com] |                  |
+|                    |                     |                  |
+|                    | Password:           |                  |
+|                    | [ ****************] |                  |
+|                    |                     |                  |
+|                    | Role Selection:     |                  |
+|                    | (o) User  ( ) Admin |                  |
+|                    |                     |                  |
+|                    | [ Register Button ] |                  |
+|                    |                     |                  |
+|                    | Already registered? |                  |
+|                    | [Log In]            |                  |
+|                    +---------------------+                  |
+|                                                             |
++-------------------------------------------------------------+
+
+### Wireframe 3: Password Recovery (`/reset-password`)
++-------------------------------------------------------------+
+|                        TrustShare                           |
++-------------------------------------------------------------+
+|                                                             |
+|                    +---------------------+                  |
+|                    |   Reset Password    |                  |
+|                    +---------------------+                  |
+|                    | Enter your account  |                  |
+|                    | email to receive a  |                  |
+|                    | recovery link.      |                  |
+|                    |                     |                  |
+|                    | Email Address:      |                  |
+|                    | [ user@example.com] |                  |
+|                    |                     |                  |
+|                    | [Send Reset Link]   |                  |
+|                    |                     |                  |
+|                    | < Back to Login     |                  |
+|                    +---------------------+                  |
+|                                                             |
++-------------------------------------------------------------+
+
+### Wireframe 4: Main File Workspace Dashboard (`/dashboard`)
++---------------------------------------------------------------------------------------+
+| TrustShare Logo  |  [ Search files by name or type... ]  | (Bell) | [ User Profile (v) ] |
++------------------+---------------------------------------+--------+-------------------+
+|                  |                                                                    |
+| [NAVIGATION]     |  Workspace Files                         [ + Upload File Button ]   |
+|                  |  ----------------------------------------------------------------  |
+| * My Files       |  | Name            | Size    | Type | Upload Date  | Actions     | |
+| * Shared Files   |  |-----------------+---------+------+--------------+-------------| |
+| * Recent Uploads |  | report.pdf      | 2.4 MB  | PDF  | 2026-10-11   | [v Download]| |
+| * Activity Log   |  | data_sheet.xlsx | 1.1 MB  | XLSX | 2026-10-10   | [v Download]| |
+| * Trash          |  | diagram.png     | 850 KB  | PNG  | 2026-10-09   | [v Download]| |
+|                  |  ----------------------------------------------------------------  |
+| ---------------- |                                                                    |
+| STORAGE USAGE    |  [ Upload File Modal Preview ]                                     |
+| [====----] 45%   |  +--------------------------------------------------------------+  |
+| 4.5 GB / 10 GB   |  | Drag and drop files here, or [Browse Files]                  |  |
+|                  |  | Supported: PDF, DOCX, XLSX, PNG (Max: 25MB)                  |  |
+|                  |  +--------------------------------------------------------------+  |
++------------------+--------------------------------------------------------------------+
