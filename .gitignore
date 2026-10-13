@@ -1,0 +1,20 @@
+# Dependencies
+node_modules/
+.next/
+out/
+venv/
+__pycache__/
+*.py[cod]
+
+# Environment & Secrets
+.env
+.env*.local
+
+# Storage uploads
+backend/storage/uploads/*
+!backend/storage/uploads/.gitkeep
+
+# OS / Editor files
+.DS_Store
+Thumbs.db
+.vscode/
