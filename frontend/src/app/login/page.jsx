@@ -1,198 +1,231 @@
 "use client";
 
-import React, { useState } from "react";
-import { Lock, Mail, ShieldCheck, Eye, EyeOff, FileText, CheckCircle2 } from "lucide-react";
+import React, { useState, useEffect, Suspense } from "react";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import api from "@/lib/api";
+import {
+  ShieldCheck,
+  User,
+  Lock,
+  ArrowRight,
+  Sparkles,
+  CheckCircle2,
+  AlertCircle,
+  Eye,
+  EyeOff,
+} from "lucide-react";
 
-export default function LoginPage() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+function LoginForm() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [credentials, setCredentials] = useState({
+    email_or_username: "",
+    password: "",
+  });
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
+  const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+  const [loading, setLoading] = useState(false);
+  useEffect(() => {
+    if (searchParams.get("registered") === "true") {
+      setSuccessMessage("Account created successfully! Please sign in.");
+    }
+  }, [searchParams]);
 
-  const handleSubmit = (e) => {
+  const handleChange = (e) => {
+    setCredentials({ ...credentials, [e.target.name]: e.target.value });
+  };
+
+  const handleLogin = async (e) => {
     e.preventDefault();
-    console.log("Submitting login payload:", { email, password, rememberMe });
-    // In later steps, Axios will send this to your FastAPI backend
+    setError("");
+    setSuccessMessage("");
+    setLoading(true);
+
+    try {
+      const response = await api.post("/auth/login", {
+        email_or_username: credentials.email_or_username,
+        password: credentials.password,
+      });
+
+      const { access_token, user } = response.data;
+
+      // Store digital authorization token and user info
+      localStorage.setItem("trustshare_token", access_token);
+      localStorage.setItem("trustshare_user", JSON.stringify(user));
+
+      // Redirect cleanly to dashboard ensuring fresh React state
+      window.location.href = "/dashboard";
+    } catch (err) {
+      const detail = err.response?.data?.detail;
+      if (Array.isArray(detail)) {
+        setError(detail[0]?.msg || "Invalid input data.");
+      } else {
+        setError(detail || "Invalid login credentials. Please try again.");
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div className="min-h-screen flex flex-col md:flex-row bg-slate-50 text-slate-800">
-      {/* LEFT COLUMN: BRANDING & SYSTEM FEATURES */}
-      <div className="w-full md:w-1/2 bg-gradient-to-br from-slate-900 via-blue-950 to-indigo-950 text-white p-8 md:p-14 flex flex-col justify-between">
-        {/* Brand Header */}
-        <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/30">
-            <ShieldCheck className="h-6 w-6 text-white" />
-          </div>
-          <span className="text-2xl font-bold tracking-tight text-white">TrustShare</span>
+    <div className="w-full max-w-md">
+      {/* Header Title */}
+      <div className="text-center mb-6">
+        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-100/70 border border-blue-200/80 text-blue-700 text-xs font-semibold shadow-xs">
+          <Sparkles className="h-3.5 w-3.5 text-blue-600" />
+          <span>Token-Based Authentication</span>
         </div>
-
-        {/* Hero Content */}
-        <div className="my-10 space-y-6">
-          <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight leading-tight">
-            Secure File Sharing <br />
-            for a <span className="text-blue-400">Safer Tomorrow</span>
-          </h1>
-          <p className="text-slate-300 text-sm md:text-base leading-relaxed max-w-md">
-            Enterprise-grade digital collaboration equipped with zero-knowledge encryption, 
-            fine-grained access controls, and real-time activity auditing.
-          </p>
-
-          {/* Feature Highlights */}
-          <div className="space-y-3 pt-2">
-            <div className="flex items-center gap-3 text-slate-200 text-sm">
-              <CheckCircle2 className="h-5 w-5 text-blue-400 shrink-0" />
-              <span>AES-256 server & storage encryption</span>
-            </div>
-            <div className="flex items-center gap-3 text-slate-200 text-sm">
-              <CheckCircle2 className="h-5 w-5 text-blue-400 shrink-0" />
-              <span>Granular Role-Based Access Control (RBAC)</span>
-            </div>
-            <div className="flex items-center gap-3 text-slate-200 text-sm">
-              <CheckCircle2 className="h-5 w-5 text-blue-400 shrink-0" />
-              <span>Multi-database audit trails & session management</span>
-            </div>
-          </div>
-
-          {/* Secure File Card Preview */}
-          <div className="mt-8 p-5 bg-white/10 backdrop-blur-md border border-white/15 rounded-2xl max-w-md shadow-2xl">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="p-2 bg-blue-500/30 rounded-lg">
-                <FileText className="h-5 w-5 text-blue-300" />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-white">Q3_Security_Audit.pdf</p>
-                <p className="text-xs text-slate-400">Encrypted Document • 2.4 MB</p>
-              </div>
-            </div>
-            <div className="w-full bg-slate-700/60 rounded-full h-2">
-              <div className="bg-blue-400 h-2 rounded-full w-full"></div>
-            </div>
-          </div>
-        </div>
-
-        {/* Footer Note */}
-        <p className="text-xs text-slate-400">
-          © 2026 TrustShare. All rights reserved.
+        <h1 className="mt-3 text-3xl font-extrabold tracking-tight text-slate-900">
+          Welcome Back
+        </h1>
+        <p className="mt-2 text-xs sm:text-sm text-slate-600">
+          Sign in with your credentials to access your secure vault.
         </p>
       </div>
 
-      {/* RIGHT COLUMN: LOGIN FORM */}
-      <div className="w-full md:w-1/2 flex items-center justify-center p-6 md:p-14 bg-white">
-        <div className="w-full max-w-md space-y-7">
-          {/* Header */}
+      <div className="bg-white/80 backdrop-blur-md rounded-2xl border border-slate-200/80 p-6 sm:p-8 shadow-xl shadow-slate-900/5">
+        {/* Registration Success Alert */}
+        {successMessage && (
+          <div className="mb-5 rounded-xl bg-emerald-50 border border-emerald-200 p-3.5 text-xs text-emerald-700 font-medium flex items-center gap-2">
+            <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
+            <span>{successMessage}</span>
+          </div>
+        )}
+
+        {/* Error Message Box */}
+        {error && (
+          <div className="mb-5 rounded-xl bg-rose-50 border border-rose-200 p-3.5 text-xs text-rose-700 font-medium flex items-center gap-2">
+            <AlertCircle className="h-4 w-4 shrink-0 text-rose-600" />
+            <span>{error}</span>
+          </div>
+        )}
+
+        <form onSubmit={handleLogin} className="space-y-4">
+          {/* Username or Email Input */}
           <div>
-            <h2 className="text-3xl font-bold tracking-tight text-slate-900">Welcome Back</h2>
-            <p className="text-sm text-slate-500 mt-1">Sign in to your TrustShare account</p>
-          </div>
-
-          <form onSubmit={handleSubmit} className="space-y-5">
-            {/* Email Field */}
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                Email Address
-              </label>
-              <div className="relative">
-                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-                <input
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="name@company.com"
-                  className="w-full pl-11 pr-4 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent text-sm transition"
-                />
+            <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+              Email or Username
+            </label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                <User className="h-4 w-4" />
               </div>
-            </div>
-
-            {/* Password Field */}
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="block text-sm font-medium text-slate-700">
-                  Password
-                </label>
-                <a href="/reset-password" className="text-xs font-semibold text-blue-600 hover:text-blue-700">
-                  Forgot password?
-                </a>
-              </div>
-              <div className="relative">
-                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-                <input
-                  type={showPassword ? "text" : "password"}
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full pl-11 pr-11 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent text-sm transition"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
-            </div>
-
-            {/* Remember Me */}
-            <div className="flex items-center">
               <input
-                id="remember-me"
-                type="checkbox"
-                checked={rememberMe}
-                onChange={(e) => setRememberMe(e.target.checked)}
-                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-slate-300 rounded cursor-pointer"
+                name="email_or_username"
+                type="text"
+                required
+                value={credentials.email_or_username}
+                onChange={handleChange}
+                className="block w-full pl-10 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"
+                placeholder="alice@example.com or alicedoe"
               />
-              <label htmlFor="remember-me" className="ml-2 block text-xs font-medium text-slate-600 cursor-pointer">
-                Remember me for 30 days
+            </div>
+          </div>
+
+          {/* Password Input with Visibility Toggle */}
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                Password
               </label>
+              <Link
+                href="/reset-password"
+                className="text-xs text-blue-600 hover:text-blue-700 hover:underline font-medium"
+              >
+                Forgot Password?
+              </Link>
             </div>
-
-            {/* Submit Button */}
-            <button
-              type="submit"
-              className="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold rounded-xl shadow-lg shadow-blue-500/20 text-sm transition duration-150"
-            >
-              Sign In
-            </button>
-          </form>
-
-          {/* Social Sign In Divider */}
-          <div className="relative my-6">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-slate-200" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-white px-2 text-slate-400 font-medium">Or continue with</span>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                <Lock className="h-4 w-4" />
+              </div>
+              <input
+                name="password"
+                type={showPassword ? "text" : "password"}
+                required
+                value={credentials.password}
+                onChange={handleChange}
+                className="block w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"
+                placeholder="••••••••"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600 transition cursor-pointer"
+                aria-label={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
             </div>
           </div>
 
-          {/* Social Logins */}
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              type="button"
-              className="flex items-center justify-center gap-2 py-2 px-4 border border-slate-200 rounded-xl hover:bg-slate-50 text-xs font-semibold text-slate-700 transition"
-            >
-              <span className="text-red-500 font-bold">G</span> Google
-            </button>
-            <button
-              type="button"
-              className="flex items-center justify-center gap-2 py-2 px-4 border border-slate-200 rounded-xl hover:bg-slate-50 text-xs font-semibold text-slate-700 transition"
-            >
-              <span className="text-blue-500 font-bold">⊞</span> Microsoft
-            </button>
-          </div>
+          {/* Submit Button */}
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full mt-2 py-3 px-4 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold rounded-xl text-sm shadow-md shadow-blue-500/20 hover:shadow-lg transition duration-150 flex items-center justify-center gap-2 group disabled:bg-blue-300 cursor-pointer"
+          >
+            <span>{loading ? "Authenticating..." : "Sign In to Vault"}</span>
+            <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+          </button>
+        </form>
 
-          {/* Sign Up Link */}
-          <p className="text-center text-xs text-slate-500">
-            Don't have an account?{" "}
-            <a href="/register" className="font-semibold text-blue-600 hover:text-blue-700">
-              Create an account
-            </a>
+        <div className="mt-6 pt-4 border-t border-slate-100 text-center">
+          <p className="text-xs text-slate-500">
+            Don't have an account yet?{" "}
+            <Link
+              href="/register"
+              className="font-semibold text-blue-600 hover:text-blue-700 hover:underline"
+            >
+              Create Account
+            </Link>
           </p>
         </div>
       </div>
+    </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <div className="min-h-screen bg-slate-50 text-slate-800 font-sans selection:bg-blue-100 selection:text-blue-700 flex flex-col justify-between relative overflow-hidden">
+      {/* Glow ambient background effects */}
+      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[350px] bg-blue-400/10 blur-[130px] rounded-full pointer-events-none -z-10" />
+      <div className="absolute top-1/3 right-10 w-[300px] h-[300px] bg-indigo-400/10 blur-[100px] rounded-full pointer-events-none -z-10" />
+
+      {/* Header Logo */}
+      <nav className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <Link href="/" className="inline-flex items-center gap-3 group">
+          <div className="h-10 w-10 rounded-xl bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/25 group-hover:scale-105 transition-transform">
+            <ShieldCheck className="h-6 w-6 text-white" />
+          </div>
+          <div className="flex flex-col">
+            <span className="text-xl font-bold tracking-tight text-slate-900 group-hover:text-blue-600 transition-colors">
+              TrustShare
+            </span>
+            <span className="text-[10px] uppercase font-semibold text-blue-600 tracking-wider">
+              Secure Cloud
+            </span>
+          </div>
+        </Link>
+      </nav>
+
+      {/* Main Login Area Wrapped in Suspense */}
+      <div className="flex-1 flex items-center justify-center px-4 py-8 sm:px-6 lg:px-8">
+        <Suspense
+          fallback={
+            <div className="text-xs text-slate-400">Loading authentication form...</div>
+          }
+        >
+          <LoginForm />
+        </Suspense>
+      </div>
+
+      <footer className="py-4 text-center text-[11px] text-slate-400">
+        © 2026 TrustShare Collaboration Platform. All rights reserved.
+      </footer>
     </div>
   );
 }

@@ -1,7 +1,6 @@
 version: '3.8'
 
 services:
-  # 1. PostgreSQL: Relational DB for Users, Auth, and Roles
   postgres:
     image: postgres:15-alpine
     container_name: trustshare_postgres
@@ -11,11 +10,10 @@ services:
       POSTGRES_PASSWORD: trustshare_password
       POSTGRES_DB: trustshare_db
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
-  # 2. MongoDB: Document DB for File Metadata and Logs
   mongodb:
     image: mongo:6.0
     container_name: trustshare_mongodb
@@ -24,11 +22,10 @@ services:
       MONGO_INITDB_ROOT_USERNAME: mongo_admin
       MONGO_INITDB_ROOT_PASSWORD: mongo_password
     ports:
-      - "27017:27017"
+      - "27018:27017"
     volumes:
       - mongo_data:/data/db
 
-  # 3. Redis: In-Memory Cache for Sessions and Rate Limiting
   redis:
     image: redis:7-alpine
     container_name: trustshare_redis

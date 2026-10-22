@@ -1,265 +1,325 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
-import { 
-  Lock, 
-  Mail, 
-  User, 
-  ShieldCheck, 
-  Eye, 
-  EyeOff, 
-  CheckCircle2, 
-  FileText,
-  ShieldAlert
+import { useRouter, useSearchParams } from "next/navigation";
+import api from "@/lib/api";
+import {
+  ShieldCheck,
+  User,
+  AtSign,
+  Mail,
+  Lock,
+  ArrowRight,
+  CheckCircle2,
+  AlertCircle,
+  Eye,
+  EyeOff,
 } from "lucide-react";
-
-export default function RegisterPage() {
+function RegisterForm() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [formData, setFormData] = useState({
-    fullName: "",
+    full_name: "",
+    username: "",
     email: "",
     password: "",
-    confirmPassword: "",
-    role: "user", // default role
-    agreeTerms: false,
+    confirm_password: "",
+    role: "user",
   });
-
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const handleChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: type === "checkbox" ? checked : value,
-    }));
+    setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
 
-    if (formData.password !== formData.confirmPassword) {
-      setError("Passwords do not match!");
+    if (formData.password !== formData.confirm_password) {
+      setError("Passwords do not match.");
       return;
     }
 
-    if (!formData.agreeTerms) {
-      setError("Please agree to the Terms of Service.");
+    if (
+      formData.username.trim().toLowerCase() === "admin" ||
+      formData.email.trim().toLowerCase() === "admin@trustshare.io"
+    ) {
+      setError(
+        "Administrator accounts cannot be registered. Administrator access is only available via Login."
+      );
       return;
     }
 
-    console.log("Submitting registration:", formData);
-    // In later steps, Axios will POST this payload to http://localhost:8000/api/v1/auth/register
+    setLoading(true);
+
+    try {
+      await api.post("/auth/register", {
+        full_name: formData.full_name,
+        username: formData.username,
+        email: formData.email,
+        password: formData.password,
+      });
+
+      router.push("/login?registered=true");
+    } catch (err) {
+      if (!err.response) {
+        setError(
+          "Network error: Unable to connect to backend API server (http://127.0.0.1:8000). Please ensure backend is running."
+        );
+      } else {
+        const detail = err.response?.data?.detail;
+        if (Array.isArray(detail)) {
+          setError(detail[0]?.msg || "Validation error occurred.");
+        } else {
+          setError(detail || "Registration failed. Please check your credentials.");
+        }
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div className="min-h-screen flex flex-col md:flex-row bg-slate-50 text-slate-800">
-      {/* LEFT COLUMN: BRANDING & HIGHLIGHTS */}
-      <div className="w-full md:w-1/2 bg-gradient-to-br from-slate-900 via-blue-950 to-indigo-950 text-white p-8 md:p-14 flex flex-col justify-between">
-        {/* Brand Header */}
-        <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/30">
-            <ShieldCheck className="h-6 w-6 text-white" />
-          </div>
-          <Link href="/" className="text-2xl font-bold tracking-tight text-white">
-            TrustShare
-          </Link>
-        </div>
-
-        {/* Hero Content */}
-        <div className="my-8 space-y-6">
-          <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight leading-tight">
-            Join the Secure <br />
-            <span className="text-blue-400">Collaboration Vault</span>
-          </h1>
-          <p className="text-slate-300 text-sm md:text-base leading-relaxed max-w-md">
-            Start collaborating with cryptographic data protection, role-based governance, and real-time activity auditing.
-          </p>
-
-          {/* Feature Highlights */}
-          <div className="space-y-3 pt-2">
-            <div className="flex items-center gap-3 text-slate-200 text-sm">
-              <CheckCircle2 className="h-5 w-5 text-blue-400 shrink-0" />
-              <span>Zero-knowledge client-server protocol</span>
-            </div>
-            <div className="flex items-center gap-3 text-slate-200 text-sm">
-              <CheckCircle2 className="h-5 w-5 text-blue-400 shrink-0" />
-              <span>Instant role onboarding (Admin & Team Members)</span>
-            </div>
-            <div className="flex items-center gap-3 text-slate-200 text-sm">
-              <CheckCircle2 className="h-5 w-5 text-blue-400 shrink-0" />
-              <span>Tamper-proof MongoDB audit trails</span>
-            </div>
-          </div>
-
-          {/* Preview Card */}
-          <div className="mt-8 p-5 bg-white/10 backdrop-blur-md border border-white/15 rounded-2xl max-w-md shadow-2xl">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="p-2 bg-blue-500/30 rounded-lg">
-                <FileText className="h-5 w-5 text-blue-300" />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-white">Protected Workspace</p>
-                <p className="text-xs text-slate-400">Encrypted Storage Ready</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <p className="text-xs text-slate-400">
-          © 2026 TrustShare. All rights reserved.
+    <div className="w-full max-w-md">
+      {/* Top Title */}
+      <div className="text-center mb-6">
+        <h1 className="mt-3 text-3xl font-extrabold tracking-tight text-slate-900">
+          Create an Account
+        </h1>
+        <p className="mt-2 text-xs sm:text-sm text-slate-600">
+          Join TrustShare to securely encrypt, store, and collaborate on files.
         </p>
       </div>
 
-      {/* RIGHT COLUMN: REGISTER FORM */}
-      <div className="w-full md:w-1/2 flex items-center justify-center p-6 md:p-14 bg-white">
-        <div className="w-full max-w-md space-y-6">
+      <div className="bg-white/80 backdrop-blur-md rounded-2xl border border-slate-200/80 p-6 sm:p-8 shadow-xl shadow-slate-900/5">
+        {error && (
+          <div className="mb-5 rounded-xl bg-rose-50 border border-rose-200 p-3.5 text-xs text-rose-700 font-medium flex items-start gap-2.5">
+            <AlertCircle className="h-4 w-4 shrink-0 text-rose-600 mt-0.5" />
+            <div className="flex-1">
+              <p>{error}</p>
+              {(error.toLowerCase().includes("already exists") ||
+                error.toLowerCase().includes("already taken") ||
+                error.toLowerCase().includes("administrator")) && (
+                <p className="mt-1.5 text-[11px] text-rose-600">
+                  Already have credentials?{" "}
+                  <Link href="/login" className="font-bold underline hover:text-rose-800">
+                    Sign In to your vault →
+                  </Link>
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Full Name */}
           <div>
-            <h2 className="text-3xl font-bold tracking-tight text-slate-900">Create an Account</h2>
-            <p className="text-sm text-slate-500 mt-1">Get started with your free TrustShare account</p>
+            <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+              Full Name
+            </label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                <User className="h-4 w-4" />
+              </div>
+              <input
+                name="full_name"
+                type="text"
+                required
+                value={formData.full_name}
+                onChange={handleChange}
+                className="block w-full pl-10 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"
+                placeholder="Alice Doe"
+              />
+            </div>
           </div>
 
-          {error && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2 text-red-600 text-xs">
-              <ShieldAlert className="h-4 w-4 shrink-0" />
-              <span>{error}</span>
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Full Name */}
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Full Name
-              </label>
-              <div className="relative">
-                <User className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                <input
-                  type="text"
-                  name="fullName"
-                  required
-                  value={formData.fullName}
-                  onChange={handleChange}
-                  placeholder="e.g. Palguni D"
-                  className="w-full pl-10 pr-4 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent text-sm transition"
-                />
+          {/* Username */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+              Username
+            </label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                <AtSign className="h-4 w-4" />
               </div>
-            </div>
-
-            {/* Email */}
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Email Address
-              </label>
-              <div className="relative">
-                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                <input
-                  type="email"
-                  name="email"
-                  required
-                  value={formData.email}
-                  onChange={handleChange}
-                  placeholder="name@company.com"
-                  className="w-full pl-10 pr-4 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent text-sm transition"
-                />
-              </div>
-            </div>
-
-            {/* Password */}
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Password
-              </label>
-              <div className="relative">
-                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                <input
-                  type={showPassword ? "text" : "password"}
-                  name="password"
-                  required
-                  value={formData.password}
-                  onChange={handleChange}
-                  placeholder="Min 8 characters"
-                  className="w-full pl-10 pr-10 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent text-sm transition"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
-            </div>
-
-            {/* Confirm Password */}
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Confirm Password
-              </label>
-              <div className="relative">
-                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                <input
-                  type={showPassword ? "text" : "password"}
-                  name="confirmPassword"
-                  required
-                  value={formData.confirmPassword}
-                  onChange={handleChange}
-                  placeholder="Re-enter password"
-                  className="w-full pl-10 pr-4 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent text-sm transition"
-                />
-              </div>
-            </div>
-
-            {/* Role Selection */}
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Account Role
-              </label>
-              <select
-                name="role"
-                value={formData.role}
-                onChange={handleChange}
-                className="w-full px-3 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent text-sm bg-white transition"
-              >
-                <option value="user">User (Standard Access)</option>
-                <option value="admin">Admin (Full Workspace Management)</option>
-              </select>
-            </div>
-
-            {/* Terms Checkbox */}
-            <div className="flex items-center pt-1">
               <input
-                id="agreeTerms"
-                name="agreeTerms"
-                type="checkbox"
-                checked={formData.agreeTerms}
+                name="username"
+                type="text"
+                required
+                value={formData.username}
                 onChange={handleChange}
-                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-slate-300 rounded cursor-pointer"
+                className="block w-full pl-10 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"
+                placeholder="alicedoe"
               />
-              <label htmlFor="agreeTerms" className="ml-2 block text-xs text-slate-600 cursor-pointer">
-                I agree to the <span className="text-blue-600 underline">Terms of Service</span> and <span className="text-blue-600 underline">Privacy Policy</span>
-              </label>
             </div>
+          </div>
 
-            {/* Submit Button */}
-            <button
-              type="submit"
-              className="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold rounded-xl shadow-lg shadow-blue-500/20 text-sm transition duration-150 mt-2"
-            >
-              Create Account
-            </button>
-          </form>
+          {/* Email */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+              Email Address
+            </label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                <Mail className="h-4 w-4" />
+              </div>
+              <input
+                name="email"
+                type="email"
+                required
+                value={formData.email}
+                onChange={handleChange}
+                className="block w-full pl-10 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"
+                placeholder="alice@example.com"
+              />
+            </div>
+          </div>
 
-          {/* Back to Login Link */}
-          <p className="text-center text-xs text-slate-500 pt-2">
+          {/* Password */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+              Password
+            </label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                <Lock className="h-4 w-4" />
+              </div>
+              <input
+                name="password"
+                type={showPassword ? "text" : "password"}
+                required
+                value={formData.password}
+                onChange={handleChange}
+                className="block w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"
+                placeholder="••••••••"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600 transition cursor-pointer"
+                aria-label={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+          </div>
+
+          {/* Confirm Password */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+              Confirm Password
+            </label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                <Lock className="h-4 w-4" />
+              </div>
+              <input
+                name="confirm_password"
+                type={showConfirmPassword ? "text" : "password"}
+                required
+                value={formData.confirm_password}
+                onChange={handleChange}
+                className="block w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"
+                placeholder="••••••••"
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600 transition cursor-pointer"
+                aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+              >
+                {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+          </div>
+
+          {/* Submit Button */}
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full mt-2 py-3 px-4 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold rounded-xl text-sm shadow-md shadow-blue-500/20 hover:shadow-lg transition duration-150 flex items-center justify-center gap-2 group disabled:bg-blue-300"
+          >
+            <span>{loading ? "Creating Account..." : "Create Account"}</span>
+            <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+          </button>
+        </form>
+
+        <div className="mt-6 pt-5 border-t border-slate-100 text-center space-y-2">
+          <p className="text-xs text-slate-500">
             Already have an account?{" "}
-            <Link href="/login" className="font-semibold text-blue-600 hover:text-blue-700">
+            <Link
+              href="/login"
+              className="font-semibold text-blue-600 hover:text-blue-700 hover:underline"
+            >
               Sign In
             </Link>
           </p>
+          <div className="inline-block px-3 py-1 bg-amber-50 border border-amber-200/80 rounded-lg text-[11px] text-amber-800">
+            <span className="font-semibold">Administrator note:</span> Admin accounts cannot be created via public registration. Please{" "}
+            <Link href="/login" className="font-semibold underline hover:text-amber-900">
+              sign in directly
+            </Link>.
+          </div>
         </div>
       </div>
+
+      {/* Bottom Security Guarantee */}
+      <div className="mt-6 flex items-center justify-center gap-4 text-[11px] text-slate-500">
+        <span className="flex items-center gap-1">
+          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" /> AES-256 Encrypted
+        </span>
+        <span className="flex items-center gap-1">
+          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" /> Zero Plaintext Storage
+        </span>
+      </div>
+    </div>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <div className="min-h-screen bg-slate-50 text-slate-800 font-sans selection:bg-blue-100 selection:text-blue-700 flex flex-col justify-between relative overflow-hidden">
+      {/* Background ambient lighting effects */}
+      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[350px] bg-blue-400/10 blur-[130px] rounded-full pointer-events-none -z-10" />
+      <div className="absolute top-1/3 right-10 w-[300px] h-[300px] bg-indigo-400/10 blur-[100px] rounded-full pointer-events-none -z-10" />
+
+      {/* Header / Brand Logo */}
+      <nav className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <Link href="/" className="inline-flex items-center gap-3 group">
+          <div className="h-10 w-10 rounded-xl bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/25 group-hover:scale-105 transition-transform">
+            <ShieldCheck className="h-6 w-6 text-white" />
+          </div>
+          <div className="flex flex-col">
+            <span className="text-xl font-bold tracking-tight text-slate-900 group-hover:text-blue-600 transition-colors">
+              TrustShare
+            </span>
+            <span className="text-[10px] uppercase font-semibold text-blue-600 tracking-wider">
+              Secure Cloud
+            </span>
+          </div>
+        </Link>
+      </nav>
+
+      {/* Main Registration Card wrapped in Suspense */}
+      <div className="flex-1 flex items-center justify-center px-4 py-8 sm:px-6 lg:px-8">
+        <Suspense
+          fallback={
+            <div className="text-xs text-slate-400">Loading registration form...</div>
+          }
+        >
+          <RegisterForm />
+        </Suspense>
+      </div>
+
+      {/* Micro Footer */}
+      <footer className="py-4 text-center text-[11px] text-slate-400">
+        © 2026 TrustShare Collaboration Platform. All rights reserved.
+      </footer>
     </div>
   );
 }
