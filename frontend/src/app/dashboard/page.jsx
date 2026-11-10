@@ -5,8 +5,14 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import api from "@/lib/api";
 import AdminGraphicalAnalytics from "@/components/AdminGraphicalAnalytics";
+import UserFileAnalytics from "@/components/UserFileAnalytics";
+import AdminSecurityDashboard from "@/components/AdminSecurityDashboard";
+import AdminSystemMonitoring from "@/components/AdminSystemMonitoring";
+import UserSecuritySection from "@/components/UserSecuritySection";
+import UserSettingsSection from "@/components/UserSettingsSection";
 import {
   ShieldCheck,
+  Shield,
   Search,
   UploadCloud,
   FileText,
@@ -49,7 +55,15 @@ import {
   ShieldAlert,
   ArrowLeft,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  ExternalLink,
+  Sparkles,
+  Settings as SettingsIcon,
+  BarChart3,
+  Calendar,
+  ChevronDown,
+  Filter,
+  RotateCcw
 } from "lucide-react";
 
 export default function DashboardPage() {
@@ -74,6 +88,7 @@ export default function DashboardPage() {
   const [currentFolderDetails, setCurrentFolderDetails] = useState(null);
   const [userStorageBytes, setUserStorageBytes] = useState(0);
   const [userTotalFiles, setUserTotalFiles] = useState(0);
+  const [userSharedFilesCount, setUserSharedFilesCount] = useState(0);
   const [userStorageQuotaBytes, setUserStorageQuotaBytes] = useState(500 * 1024 * 1024);
   const [userRemainingBytes, setUserRemainingBytes] = useState(500 * 1024 * 1024);
   const [userQuotaMb, setUserQuotaMb] = useState(500);
@@ -81,6 +96,36 @@ export default function DashboardPage() {
   // Security Alerts & Failed Login Notifications
   const [securityAlerts, setSecurityAlerts] = useState({ count: 0, list: [] });
   const [showNotificationsModal, setShowNotificationsModal] = useState(false);
+
+  // Seen tracking for badges (alerts, files, shared, users, security, analytics)
+  const [seenBadges, setSeenBadges] = useState({
+    alerts: false,
+    files: false,
+    shared: false,
+    users: false,
+    security: false,
+    analytics: false
+  });
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("trustshare_seen_badges");
+      if (stored) {
+        setSeenBadges((prev) => ({ ...prev, ...JSON.parse(stored) }));
+      }
+    } catch {}
+  }, []);
+
+  const markBadgeSeen = useCallback((key) => {
+    setSeenBadges((prev) => {
+      if (prev[key]) return prev;
+      const updated = { ...prev, [key]: true };
+      try {
+        localStorage.setItem("trustshare_seen_badges", JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+  }, []);
 
   // Upload Modals & Drag State
   const [isDragging, setIsDragging] = useState(false);
@@ -121,6 +166,113 @@ export default function DashboardPage() {
   const [copiedLink, setCopiedLink] = useState(false);
   const [renameModal, setRenameModal] = useState({ isOpen: false, item: null, newName: "" });
 
+  // Milestone 2 Secure Sharing Configuration State
+  const [shareConfig, setShareConfig] = useState({
+    permission: "download", // "view" or "download"
+    hasGuestPassword: true,
+    guestPassword: "",
+    expirationPreset: "24h", // "1h", "24h", "7d", "30d", "never", "custom"
+    customExpiresAt: "",
+    maxDownloads: "", // number or empty
+    existingShares: [],
+    loadingShares: false,
+    creatingShare: false,
+    createdShareUrl: "",
+    error: ""
+  });
+  const [showShareGuestPassword, setShowShareGuestPassword] = useState(false);
+
+  const generateRandomGuestPassword = () => {
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
+    let rand = "";
+    for (let i = 0; i < 4; i++) rand += chars.charAt(Math.floor(Math.random() * chars.length));
+    const num = Math.floor(1000 + Math.random() * 9000);
+    const pass = `Guest-${num}-${rand}`;
+    setShareConfig((prev) => ({ ...prev, guestPassword: pass, hasGuestPassword: true }));
+  };
+
+  const openShareModal = async (item) => {
+    setShareModalItem(item);
+    setCopiedLink(false);
+    setShareConfig({
+      permission: "download",
+      hasGuestPassword: true,
+      guestPassword: "",
+      expirationPreset: "24h",
+      customExpiresAt: "",
+      maxDownloads: "",
+      existingShares: [],
+      loadingShares: true,
+      creatingShare: false,
+      createdShareUrl: "",
+      error: ""
+    });
+
+    try {
+      const res = await api.get(`/files/${item.id}/shares`);
+      setShareConfig((prev) => ({
+        ...prev,
+        existingShares: res.data.shares || [],
+        loadingShares: false
+      }));
+    } catch (err) {
+      console.warn("Failed to load existing shares:", err);
+      setShareConfig((prev) => ({ ...prev, loadingShares: false }));
+    }
+  };
+
+  const handleCreateShareLink = async () => {
+    if (!shareModalItem) return;
+    setShareConfig((prev) => ({ ...prev, creatingShare: true, error: "" }));
+
+    try {
+      const payload = {
+        permission: shareConfig.permission,
+        guest_password:
+          shareConfig.hasGuestPassword && shareConfig.guestPassword.trim()
+            ? shareConfig.guestPassword.trim()
+            : null,
+        expiration_preset: shareConfig.expirationPreset,
+        custom_expires_at:
+          shareConfig.expirationPreset === "custom" && shareConfig.customExpiresAt
+            ? shareConfig.customExpiresAt
+            : null,
+        max_downloads: shareConfig.maxDownloads ? parseInt(shareConfig.maxDownloads, 10) : null
+      };
+
+      const res = await api.post(`/files/${shareModalItem.id}/share`, payload);
+      const fullUrl = `${typeof window !== "undefined" ? window.location.origin : ""}${res.data.share_url}`;
+
+      setShareConfig((prev) => ({
+        ...prev,
+        createdShareUrl: fullUrl,
+        existingShares: [res.data, ...prev.existingShares],
+        creatingShare: false
+      }));
+
+      showToast("Secure share link generated successfully!", "success");
+      fetchItems();
+    } catch (err) {
+      const detail = err.response?.data?.detail || "Failed to generate share link.";
+      setShareConfig((prev) => ({ ...prev, creatingShare: false, error: detail }));
+      showToast(detail, "error");
+    }
+  };
+
+  const handleRevokeShare = async (shareId) => {
+    try {
+      await api.delete(`/files/shares/${shareId}`);
+      setShareConfig((prev) => ({
+        ...prev,
+        existingShares: prev.existingShares.filter((s) => s.id !== shareId)
+      }));
+      showToast("Share link revoked immediately. Guest access terminated.", "success");
+      fetchItems();
+    } catch (err) {
+      showToast("Failed to revoke share link.", "error");
+    }
+  };
+
   // Password Visibility Toggle States for Modals
   const [showUploadPassword, setShowUploadPassword] = useState(false);
   const [showNewFolderPassword, setShowNewFolderPassword] = useState(false);
@@ -130,12 +282,38 @@ export default function DashboardPage() {
   // User Personal Activity Log State
   const [userLogs, setUserLogs] = useState([]);
   const [loadingUserLogs, setLoadingUserLogs] = useState(false);
+  const [userLogsDays, setUserLogsDays] = useState(30); // Default to a month (30 days)
+  const [userLogsStartDate, setUserLogsStartDate] = useState("");
+  const [userLogsEndDate, setUserLogsEndDate] = useState("");
+  const [userLogsDateRangeLabel, setUserLogsDateRangeLabel] = useState("Last 30 Days (Default: Month)");
+  const [userLogsActionFilter, setUserLogsActionFilter] = useState("ALL");
+  const [isUserLogsDatePickerOpen, setIsUserLogsDatePickerOpen] = useState(false);
+  const [userLogsCustomStart, setUserLogsCustomStart] = useState("");
+  const [userLogsCustomEnd, setUserLogsCustomEnd] = useState("");
+  const userLogsDatePickerRef = useRef(null);
+
+  // Admin Logs Date Filter State
+  const [adminLogsDays, setAdminLogsDays] = useState(30); // Default to a month (30 days)
+  const [adminLogsStartDate, setAdminLogsStartDate] = useState("");
+  const [adminLogsEndDate, setAdminLogsEndDate] = useState("");
+  const [adminLogsDateRangeLabel, setAdminLogsDateRangeLabel] = useState("Last 30 Days (Default: Monthly)");
+  const [isAdminLogsDatePickerOpen, setIsAdminLogsDatePickerOpen] = useState(false);
+  const [adminLogsCustomStart, setAdminLogsCustomStart] = useState("");
+  const [adminLogsCustomEnd, setAdminLogsCustomEnd] = useState("");
+  const [adminLogsSearch, setAdminLogsSearch] = useState("");
+  const [loadingAdminLogs, setLoadingAdminLogs] = useState(false);
+  const [adminLogsTotal, setAdminLogsTotal] = useState(0);
+  const [adminLogsActionCounts, setAdminLogsActionCounts] = useState({});
+  const adminLogsDatePickerRef = useRef(null);
 
   // Notifications Toast
   const [toastMessage, setToastMessage] = useState(null);
 
   // Admin Analytics & Moderation State
   const [adminAnalytics, setAdminAnalytics] = useState(null);
+  const [adminDays, setAdminDays] = useState(7);
+  const [adminStartDate, setAdminStartDate] = useState("");
+  const [adminEndDate, setAdminEndDate] = useState("");
   const [adminLogs, setAdminLogs] = useState([]);
   const [adminUsers, setAdminUsers] = useState([]);
   const [adminSubTab, setAdminSubTab] = useState("overview"); // 'overview', 'users', 'logs'
@@ -163,13 +341,27 @@ export default function DashboardPage() {
       setToken(storedToken);
       setUser(parsedUser);
       if (parsedUser.role === "admin") {
-        setActiveTab("admin-analytics");
+        setActiveTab("admin-security-dashboard");
       } else {
-        setActiveTab("my-vault");
+        setActiveTab("file-analytics");
       }
     } catch {
       window.location.href = "/login";
     }
+  }, []);
+
+  // Handle clicks outside date pickers
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (userLogsDatePickerRef.current && !userLogsDatePickerRef.current.contains(event.target)) {
+        setIsUserLogsDatePickerOpen(false);
+      }
+      if (adminLogsDatePickerRef.current && !adminLogsDatePickerRef.current.contains(event.target)) {
+        setIsAdminLogsDatePickerOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   // Fetch Items from Backend
@@ -179,12 +371,13 @@ export default function DashboardPage() {
 
     try {
       let filterParam = "all";
-      if (activeTab === "starred") filterParam = "starred";
+      if (activeTab === "starred" || activeTab === "favorites") filterParam = "starred";
       if (activeTab === "recent") filterParam = "recent";
-      if (activeTab === "shared") filterParam = "shared";
+      if (activeTab === "shared" || activeTab === "shared-by-me" || activeTab === "shared-with-me") filterParam = "shared";
+      if (activeTab === "trash") filterParam = "trash";
 
       const params = {
-        folder_id: (activeTab === "my-vault" && currentFolderId) ? currentFolderId : undefined,
+        folder_id: ((activeTab === "my-vault" || activeTab === "my-files") && currentFolderId) ? currentFolderId : undefined,
         filter_type: filterParam,
         category: categoryFilter !== "all" ? categoryFilter : undefined,
         search: searchQuery.trim() || undefined,
@@ -199,6 +392,7 @@ export default function DashboardPage() {
       }
       setUserStorageBytes(res.data.user_storage_bytes || 0);
       setUserTotalFiles(res.data.user_total_files || 0);
+      setUserSharedFilesCount(res.data.user_shared_files_count || 0);
       if (res.data.user_storage_quota_bytes) {
         setUserStorageQuotaBytes(res.data.user_storage_quota_bytes);
       }
@@ -208,28 +402,46 @@ export default function DashboardPage() {
       if (res.data.user_quota_mb) {
         setUserQuotaMb(res.data.user_quota_mb);
       }
+      if (["my-vault", "my-files", "file-analytics"].includes(activeTab)) {
+        markBadgeSeen("files");
+      }
     } catch (err) {
       console.error("Failed to load files:", err);
       showToast("Unable to load files.", "error");
     } finally {
       setLoadingItems(false);
     }
-  }, [token, activeTab, currentFolderId, categoryFilter, searchQuery, sortBy]);
+  }, [token, activeTab, currentFolderId, categoryFilter, searchQuery, sortBy, markBadgeSeen]);
 
   // Fetch User Personal Activity Logs
-  const fetchUserLogs = useCallback(async () => {
+  const fetchUserLogs = useCallback(async (overrideParams = {}) => {
     if (!token) return;
     setLoadingUserLogs(true);
     try {
-      const res = await api.get("/files/activity-logs", { params: { limit: 50 } });
+      const params = { limit: 100 };
+      const d = overrideParams.days !== undefined ? overrideParams.days : userLogsDays;
+      if (d) params.days = d;
+
+      const s = overrideParams.startDate !== undefined ? overrideParams.startDate : userLogsStartDate;
+      const e = overrideParams.endDate !== undefined ? overrideParams.endDate : userLogsEndDate;
+      if (s) params.start_date = s;
+      if (e) params.end_date = e;
+
+      const act = overrideParams.action !== undefined ? overrideParams.action : userLogsActionFilter;
+      if (act && act !== "ALL") params.action = act;
+
+      const res = await api.get("/files/activity-logs", { params });
       setUserLogs(res.data.logs || []);
+      if (res.data?.date_range) {
+        setUserLogsDateRangeLabel(res.data.date_range);
+      }
     } catch (err) {
       console.error("Failed to load user activity logs:", err);
       showToast("Failed to load activity logs.", "error");
     } finally {
       setLoadingUserLogs(false);
     }
-  }, [token]);
+  }, [token, userLogsDays, userLogsStartDate, userLogsEndDate, userLogsActionFilter]);
 
   // Fetch Security Alerts & Incorrect Logins for Admins
   const fetchSecurityAlerts = useCallback(async () => {
@@ -240,16 +452,32 @@ export default function DashboardPage() {
         count: res.data.total || 0,
         list: res.data.alerts || []
       });
+      if (activeTab === "admin-security-dashboard") {
+        markBadgeSeen("alerts");
+      }
     } catch (err) {
       if (err.response?.status !== 403) {
         console.warn("Failed to fetch security alerts:", err);
       }
     }
-  }, [token, user]);
+  }, [token, user, activeTab, markBadgeSeen]);
 
   // Load items whenever relevant filters change
   useEffect(() => {
-    if (activeTab !== "admin-analytics" && activeTab !== "user-activity") {
+    const isSpecialTab = [
+      "admin-security-dashboard",
+      "system-monitoring",
+      "admin-analytics",
+      "admin-overview",
+      "admin-users",
+      "admin-logs",
+      "user-activity",
+      "file-analytics",
+      "user-security",
+      "settings"
+    ].includes(activeTab);
+
+    if (!isSpecialTab) {
       fetchItems();
     } else if (activeTab === "user-activity") {
       fetchUserLogs();
@@ -263,24 +491,159 @@ export default function DashboardPage() {
     }
   }, [user, token, fetchSecurityAlerts]);
 
+  // Auto-dismiss badges once user/admin visits the corresponding section
+  useEffect(() => {
+    if (activeTab === "admin-security-dashboard") {
+      markBadgeSeen("alerts");
+    } else if (activeTab === "my-vault" || activeTab === "my-files" || activeTab === "file-analytics") {
+      markBadgeSeen("files");
+    } else if (activeTab === "shared" || activeTab === "shared-with-me" || activeTab === "shared-by-me") {
+      markBadgeSeen("shared");
+    } else if (activeTab === "user-security") {
+      markBadgeSeen("security");
+    }
+    if (activeTab === "file-analytics") {
+      markBadgeSeen("analytics");
+    }
+  }, [activeTab, markBadgeSeen]);
+
+  useEffect(() => {
+    if (activeTab === "admin-analytics" && adminSubTab === "users") {
+      markBadgeSeen("users");
+    }
+  }, [activeTab, adminSubTab, markBadgeSeen]);
+
+  // Date Helper Functions for Admin Audit Logs
+  const getCurrentMonthRange = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
+    const monthName = now.toLocaleString("default", { month: "short" });
+    return {
+      start: `${year}-${month}-01`,
+      end: `${year}-${month}-${day}`,
+      label: `Current Month (${monthName} 1 - ${now.getDate()})`
+    };
+  };
+
+  const getPreviousMonthRange = () => {
+    const now = new Date();
+    const prevDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const year = prevDate.getFullYear();
+    const month = String(prevDate.getMonth() + 1).padStart(2, "0");
+    const lastDay = new Date(year, prevDate.getMonth() + 1, 0).getDate();
+    const monthName = prevDate.toLocaleString("default", { month: "short" });
+    return {
+      start: `${year}-${month}-01`,
+      end: `${year}-${month}-${String(lastDay).padStart(2, "0")}`,
+      label: `Previous Month (${monthName} 1 - ${lastDay})`
+    };
+  };
+
+  const handleResetAdminLogsToDefaultMonthly = () => {
+    setAdminLogsDays(30);
+    setAdminLogsStartDate("");
+    setAdminLogsEndDate("");
+    setAdminLogsCustomStart("");
+    setAdminLogsCustomEnd("");
+    setAdminLogsDateRangeLabel("Last 30 Days (Default: Monthly)");
+    setIsAdminLogsDatePickerOpen(false);
+    fetchAdminLogs({ days: 30, startDate: "", endDate: "" });
+  };
+
+  const exportAdminLogsToCSV = () => {
+    if (!adminLogs || adminLogs.length === 0) {
+      showToast("No audit logs to export for this period.", "info");
+      return;
+    }
+    const headers = ["Timestamp", "User", "Action", "Target / Resource", "IP Address", "Details / Reason"];
+    const rows = adminLogs.map((log) => [
+      `"${log.timestamp}"`,
+      `"${log.username || "Anonymous"}"`,
+      `"${log.action}"`,
+      `"${(log.resource_name || "").replace(/"/g, '""')}"`,
+      `"${log.ip_address || "127.0.0.1"}"`,
+      `"${(log.details?.reason || (log.details ? JSON.stringify(log.details) : "")).replace(/"/g, '""')}"`
+    ]);
+    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    const fileSuffix = adminLogsStartDate ? `${adminLogsStartDate}_to_${adminLogsEndDate}` : "monthly_default";
+    link.setAttribute("download", `admin_audit_logs_${fileSuffix}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showToast("Audit logs exported to CSV.", "success");
+  };
+
+  // Fetch Admin Audit Logs independently with custom date-wise or default monthly filtering
+  const fetchAdminLogs = useCallback(async (overrideParams = {}) => {
+    if (!token || !user || user.role !== "admin") return;
+    setLoadingAdminLogs(true);
+    try {
+      const d = overrideParams.days !== undefined ? overrideParams.days : adminLogsDays;
+      const s = overrideParams.startDate !== undefined ? overrideParams.startDate : adminLogsStartDate;
+      const e = overrideParams.endDate !== undefined ? overrideParams.endDate : adminLogsEndDate;
+      const act = overrideParams.action !== undefined ? overrideParams.action : logFilterAction;
+      const q = overrideParams.search !== undefined ? overrideParams.search : adminLogsSearch;
+
+      const params = {
+        limit: 150
+      };
+      if (s || e) {
+        if (s) params.start_date = s;
+        if (e) params.end_date = e;
+      } else if (d) {
+        params.days = d;
+      } else {
+        params.days = 30; // Default Monthly
+      }
+      if (act && act !== "ALL") params.action = act;
+      if (q && q.trim()) params.search = q.trim();
+
+      const res = await api.get("/admin/audit-logs", { params });
+      setAdminLogs(res.data.logs || []);
+      setAdminLogsTotal(res.data.total || 0);
+      if (res.data?.action_counts) {
+        setAdminLogsActionCounts(res.data.action_counts);
+      }
+      if (res.data?.date_range) {
+        setAdminLogsDateRangeLabel(res.data.date_range);
+      }
+    } catch (err) {
+      console.error("Admin audit logs fetch error:", err);
+      showToast("Failed to load audit logs stream.", "error");
+    } finally {
+      setLoadingAdminLogs(false);
+    }
+  }, [token, user, adminLogsDays, adminLogsStartDate, adminLogsEndDate, logFilterAction, adminLogsSearch]);
+
   // Fetch Admin Analytics
-  const fetchAdminData = useCallback(async () => {
+  const fetchAdminData = useCallback(async (overrideParams = {}) => {
     if (!token || !user || user.role !== "admin") {
       setActiveTab("my-vault");
       return;
     }
     setLoadingAdmin(true);
 
+    const targetDays = overrideParams.days !== undefined ? overrideParams.days : adminDays;
+    const targetStart = overrideParams.startDate !== undefined ? overrideParams.startDate : adminStartDate;
+    const targetEnd = overrideParams.endDate !== undefined ? overrideParams.endDate : adminEndDate;
+
+    if (overrideParams.days !== undefined) setAdminDays(overrideParams.days);
+    if (overrideParams.startDate !== undefined) setAdminStartDate(overrideParams.startDate);
+    if (overrideParams.endDate !== undefined) setAdminEndDate(overrideParams.endDate);
+
     try {
-      const [analyticsRes, logsRes, usersRes] = await Promise.all([
-        api.get("/admin/analytics"),
-        api.get("/admin/audit-logs", {
-          params: {
-            limit: 50,
-            action: logFilterAction !== "ALL" ? logFilterAction : undefined,
-            username: logSearchUser.trim() || undefined
-          }
-        }),
+      const analyticsParams = {};
+      if (targetDays) analyticsParams.days = targetDays;
+      if (targetStart) analyticsParams.start_date = targetStart;
+      if (targetEnd) analyticsParams.end_date = targetEnd;
+
+      const [analyticsRes, usersRes] = await Promise.all([
+        api.get("/admin/analytics", { params: analyticsParams }),
         api.get("/admin/users")
       ]);
 
@@ -290,9 +653,12 @@ export default function DashboardPage() {
           count: analyticsRes.data.security_alerts.failed_logins_count || 0,
           list: analyticsRes.data.security_alerts.recent_failed_logins || []
         });
+        if (activeTab === "admin-security-dashboard") {
+          markBadgeSeen("alerts");
+        }
       }
-      setAdminLogs(logsRes.data.logs || []);
       setAdminUsers(usersRes.data.users || []);
+      fetchAdminLogs();
     } catch (err) {
       if (err.response?.status === 403) {
         console.warn("Current user does not have admin privileges; switching to vault.");
@@ -304,13 +670,19 @@ export default function DashboardPage() {
     } finally {
       setLoadingAdmin(false);
     }
-  }, [token, user, logFilterAction, logSearchUser]);
+  }, [token, user, adminDays, adminStartDate, adminEndDate, fetchAdminLogs, activeTab, markBadgeSeen]);
 
   useEffect(() => {
     if (activeTab === "admin-analytics") {
       fetchAdminData();
     }
-  }, [activeTab, fetchAdminData]);
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (activeTab === "admin-analytics" && adminSubTab === "logs") {
+      fetchAdminLogs();
+    }
+  }, [activeTab, adminSubTab, logFilterAction]);
 
   const [isCleaningAdminStorage, setIsCleaningAdminStorage] = useState(false);
 
@@ -603,6 +975,9 @@ export default function DashboardPage() {
   // Drag and drop event handlers
   const handleDragOver = (e) => {
     e.preventDefault();
+    if (activeTab === "trash" || activeTab === "shared-with-me" || activeTab === "shared") {
+      return;
+    }
     setIsDragging(true);
   };
 
@@ -614,6 +989,14 @@ export default function DashboardPage() {
   const handleDrop = async (e) => {
     e.preventDefault();
     setIsDragging(false);
+    if (activeTab === "trash") {
+      showToast("Cannot upload files into Trash. Switch to My Vault to upload files.", "error");
+      return;
+    }
+    if (activeTab === "shared-with-me") {
+      showToast("Cannot upload files into Shared with Me. Files shared by collaborators will appear here automatically.", "error");
+      return;
+    }
     const droppedFiles = e.dataTransfer.files;
     if (droppedFiles && droppedFiles.length > 0) {
       setUploadFilesList(droppedFiles);
@@ -846,88 +1229,275 @@ export default function DashboardPage() {
             {user.role === "admin" ? (
               <>
                 <div className="px-3 mb-2 flex items-center justify-between">
-                  <span className="text-[10px] uppercase font-bold text-amber-400 tracking-wider">
-                    Administrator Controls
+                  <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+                    ADMIN PANEL
                   </span>
-                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-400/20 text-amber-300 font-mono font-bold">
-                    RBAC
+                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 font-mono font-bold">
+                    RBAC ACTIVE
                   </span>
                 </div>
 
+                {/* 1. Dashboard */}
                 <button
                   onClick={() => {
                     setActiveTab("admin-analytics");
-                    if (adminSubTab === "logs") setAdminSubTab("overview");
+                    setAdminSubTab("overview");
+                  }}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition cursor-pointer ${
+                    activeTab === "admin-analytics" && adminSubTab === "overview"
+                      ? "bg-blue-600 text-white font-semibold shadow-sm"
+                      : "hover:bg-slate-800 text-slate-300 hover:text-white"
+                  }`}
+                >
+                  <Grid className="h-4 w-4 text-slate-400" />
+                  <span>Dashboard</span>
+                </button>
+
+                {/* 2. User Management */}
+                <button
+                  onClick={() => {
+                    setActiveTab("admin-analytics");
+                    setAdminSubTab("users");
+                    markBadgeSeen("users");
                   }}
                   className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition cursor-pointer ${
-                    activeTab === "admin-analytics" && adminSubTab !== "logs"
-                      ? "bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-semibold shadow-md shadow-indigo-900/30"
+                    activeTab === "admin-analytics" && adminSubTab === "users"
+                      ? "bg-blue-600 text-white font-semibold shadow-sm"
                       : "hover:bg-slate-800 text-slate-300 hover:text-white"
                   }`}
                 >
                   <div className="flex items-center gap-3">
-                    <Activity className="h-4 w-4 text-purple-400" />
-                    <span>Admin Analytics</span>
+                    <Users className="h-4 w-4 text-slate-400" />
+                    <span>User Management</span>
                   </div>
-                  {securityAlerts.count > 0 && (
-                    <span className="px-1.5 py-0.5 rounded-full bg-rose-600 text-white text-[10px] font-bold animate-pulse">
-                      {securityAlerts.count}
+                  {!seenBadges.users && adminUsers.length > 0 && (
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-300">
+                      {adminUsers.length}
                     </span>
                   )}
                 </button>
 
+                {/* 3. File Management */}
+                <button
+                  onClick={() => {
+                    setActiveTab("my-vault");
+                    setCurrentFolderId(null);
+                    markBadgeSeen("files");
+                  }}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition cursor-pointer ${
+                    activeTab === "my-vault"
+                      ? "bg-blue-600 text-white font-semibold shadow-sm"
+                      : "hover:bg-slate-800 text-slate-300 hover:text-white"
+                  }`}
+                >
+                  <Folder className="h-4 w-4 text-slate-400" />
+                  <span>File Management</span>
+                </button>
+
+                {/* 4. Sharing Reports */}
+                <button
+                  onClick={() => {
+                    setActiveTab("shared");
+                    setCurrentFolderId(null);
+                    markBadgeSeen("shared");
+                  }}
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition cursor-pointer ${
+                    activeTab === "shared"
+                      ? "bg-blue-600 text-white font-semibold shadow-sm"
+                      : "hover:bg-slate-800 text-slate-300 hover:text-white"
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <Share2 className="h-4 w-4 text-slate-400" />
+                    <span>Sharing Reports</span>
+                  </div>
+                  {!seenBadges.shared && userSharedFilesCount > 0 && (
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-sky-300">
+                      {userSharedFilesCount}
+                    </span>
+                  )}
+                </button>
+
+                {/* 5. Security Dashboard (Highlighted Admin Feature from Image 2 top) */}
+                <button
+                  onClick={() => {
+                    setActiveTab("admin-security-dashboard");
+                    markBadgeSeen("alerts");
+                  }}
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition cursor-pointer ${
+                    activeTab === "admin-security-dashboard"
+                      ? "bg-blue-600 text-white font-semibold shadow-md shadow-blue-900/30 ring-1 ring-blue-400"
+                      : "hover:bg-slate-800 text-slate-300 hover:text-white"
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <ShieldAlert className="h-4 w-4 text-blue-400" />
+                    <span>Security Dashboard</span>
+                  </div>
+                  {!seenBadges.alerts && securityAlerts.count > 0 && (
+                    <span className="px-1.5 py-0.5 rounded-full bg-rose-600 text-white text-[10px] font-bold animate-pulse">
+                      {securityAlerts.count} alerts
+                    </span>
+                  )}
+                </button>
+
+                {/* 6. Analytics */}
+                <button
+                  onClick={() => {
+                    setActiveTab("admin-analytics");
+                    setAdminSubTab("overview");
+                  }}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition cursor-pointer ${
+                    activeTab === "admin-analytics" && adminSubTab === "overview"
+                      ? "bg-blue-600 text-white font-semibold shadow-sm"
+                      : "hover:bg-slate-800 text-slate-300 hover:text-white"
+                  }`}
+                >
+                  <BarChart3 className="h-4 w-4 text-slate-400" />
+                  <span>Analytics</span>
+                </button>
+
+                {/* 7. System Monitoring */}
+                <button
+                  onClick={() => {
+                    setActiveTab("system-monitoring");
+                  }}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition cursor-pointer ${
+                    activeTab === "system-monitoring"
+                      ? "bg-blue-600 text-white font-semibold shadow-sm"
+                      : "hover:bg-slate-800 text-slate-300 hover:text-white"
+                  }`}
+                >
+                  <Server className="h-4 w-4 text-slate-400" />
+                  <span>System Monitoring</span>
+                </button>
+
+                {/* 8. Activity Logs */}
                 <button
                   onClick={() => {
                     setActiveTab("admin-analytics");
                     setAdminSubTab("logs");
+                    fetchAdminLogs();
                   }}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition cursor-pointer ${
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition cursor-pointer ${
                     activeTab === "admin-analytics" && adminSubTab === "logs"
                       ? "bg-blue-600 text-white font-semibold shadow-sm"
                       : "hover:bg-slate-800 text-slate-300 hover:text-white"
                   }`}
                 >
-                  <Activity className="h-4 w-4 text-cyan-400" />
-                  <span>Activity Log</span>
+                  <div className="flex items-center gap-3">
+                    <Activity className="h-4 w-4 text-slate-400" />
+                    <span>Activity Logs</span>
+                  </div>
+                </button>
+
+                {/* 9. Settings */}
+                <button
+                  onClick={() => setActiveTab("settings")}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition cursor-pointer ${
+                    activeTab === "settings"
+                      ? "bg-blue-600 text-white font-semibold shadow-sm"
+                      : "hover:bg-slate-800 text-slate-300 hover:text-white"
+                  }`}
+                >
+                  <SettingsIcon className="h-4 w-4 text-slate-400" />
+                  <span>Settings</span>
                 </button>
               </>
             ) : (
               <>
+                <div className="px-3 mb-2 flex items-center justify-between">
+                  <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+                    USER PANEL
+                  </span>
+                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono font-bold">
+                    AES-256
+                  </span>
+                </div>
+
+                {/* 1. Dashboard */}
                 <button
                   onClick={() => {
                     setActiveTab("my-vault");
                     setCurrentFolderId(null);
+                    markBadgeSeen("files");
                   }}
-                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition cursor-pointer ${
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition cursor-pointer ${
                     activeTab === "my-vault"
                       ? "bg-blue-600 text-white font-semibold shadow-sm"
                       : "hover:bg-slate-800 hover:text-white"
                   }`}
                 >
-                  <div className="flex items-center gap-3">
-                    <FileText className="h-4 w-4" />
-                    <span>My Vault</span>
-                  </div>
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-slate-800/80 text-slate-300">
-                    {userTotalFiles}
-                  </span>
+                  <Grid className="h-4 w-4 text-slate-400" />
+                  <span>Dashboard</span>
                 </button>
 
+                {/* 2. My Files */}
+                <button
+                  onClick={() => {
+                    setActiveTab("my-files");
+                    setCurrentFolderId(null);
+                    markBadgeSeen("files");
+                  }}
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition cursor-pointer ${
+                    activeTab === "my-files"
+                      ? "bg-blue-600 text-white font-semibold shadow-sm"
+                      : "hover:bg-slate-800 hover:text-white"
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <Folder className="h-4 w-4 text-slate-400" />
+                    <span>My Files</span>
+                  </div>
+                  {!seenBadges.files && userTotalFiles > 0 && (
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-300">
+                      {userTotalFiles}
+                    </span>
+                  )}
+                </button>
+
+                {/* 3. Shared with Me */}
+                <button
+                  onClick={() => {
+                    setActiveTab("shared-with-me");
+                    setCurrentFolderId(null);
+                    markBadgeSeen("shared");
+                  }}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition cursor-pointer ${
+                    activeTab === "shared-with-me"
+                      ? "bg-blue-600 text-white font-semibold shadow-sm"
+                      : "hover:bg-slate-800 hover:text-white"
+                  }`}
+                >
+                  <Users className="h-4 w-4 text-slate-400" />
+                  <span>Shared with Me</span>
+                </button>
+
+                {/* 4. Shared by Me */}
                 <button
                   onClick={() => {
                     setActiveTab("shared");
                     setCurrentFolderId(null);
+                    markBadgeSeen("shared");
                   }}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition cursor-pointer ${
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition cursor-pointer ${
                     activeTab === "shared"
                       ? "bg-blue-600 text-white font-semibold shadow-sm"
                       : "hover:bg-slate-800 hover:text-white"
                   }`}
                 >
-                  <Share2 className="h-4 w-4 text-sky-400" />
-                  <span>Shared Files</span>
+                  <div className="flex items-center gap-3">
+                    <Share2 className="h-4 w-4 text-sky-400" />
+                    <span>Shared by Me</span>
+                  </div>
+                  {!seenBadges.shared && userSharedFilesCount > 0 && (
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-sky-300 font-semibold">
+                      {userSharedFilesCount}
+                    </span>
+                  )}
                 </button>
 
+                {/* 5. Recent */}
                 <button
                   onClick={() => {
                     setActiveTab("recent");
@@ -940,9 +1510,10 @@ export default function DashboardPage() {
                   }`}
                 >
                   <Clock className="h-4 w-4 text-emerald-400" />
-                  <span>Recent Uploads</span>
+                  <span>Recent</span>
                 </button>
 
+                {/* 6. Favorites */}
                 <button
                   onClick={() => {
                     setActiveTab("starred");
@@ -955,13 +1526,64 @@ export default function DashboardPage() {
                   }`}
                 >
                   <Star className="h-4 w-4 text-amber-400" />
-                  <span>Starred Assets</span>
+                  <span>Favorites</span>
                 </button>
 
+                {/* 7. Trash */}
                 <button
                   onClick={() => {
-                    setActiveTab("user-activity");
+                    setActiveTab("trash");
+                    setCurrentFolderId(null);
                   }}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition cursor-pointer ${
+                    activeTab === "trash"
+                      ? "bg-blue-600 text-white font-semibold shadow-sm"
+                      : "hover:bg-slate-800 hover:text-white"
+                  }`}
+                >
+                  <Trash2 className="h-4 w-4 text-rose-400" />
+                  <span>Trash</span>
+                </button>
+
+                {/* 8. Storage */}
+                <button
+                  onClick={() => {
+                    setActiveTab("storage");
+                  }}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition cursor-pointer ${
+                    activeTab === "storage"
+                      ? "bg-blue-600 text-white font-semibold shadow-sm"
+                      : "hover:bg-slate-800 hover:text-white"
+                  }`}
+                >
+                  <HardDrive className="h-4 w-4 text-indigo-400" />
+                  <span>Storage</span>
+                </button>
+
+                {/* 9. File Analytics (Highlighted User Feature from Image 1) */}
+                <button
+                  onClick={() => {
+                    setActiveTab("file-analytics");
+                    markBadgeSeen("analytics");
+                  }}
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition cursor-pointer ${
+                    activeTab === "file-analytics"
+                      ? "bg-blue-600 text-white font-semibold shadow-md shadow-blue-900/30 ring-1 ring-blue-400"
+                      : "hover:bg-slate-800 hover:text-white"
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <BarChart3 className="h-4 w-4 text-blue-300" />
+                    <span>File Analytics</span>
+                  </div>
+                  {!seenBadges.analytics && (
+                    <span className="h-2 w-2 rounded-full bg-blue-300" />
+                  )}
+                </button>
+
+                {/* 10. Activity Logs */}
+                <button
+                  onClick={() => setActiveTab("user-activity")}
                   className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition cursor-pointer ${
                     activeTab === "user-activity"
                       ? "bg-blue-600 text-white font-semibold shadow-sm"
@@ -969,57 +1591,122 @@ export default function DashboardPage() {
                   }`}
                 >
                   <Activity className="h-4 w-4 text-cyan-400" />
-                  <span>Activity Log</span>
+                  <span>Activity Logs</span>
+                </button>
+
+                {/* 11. Security (User Security Section from Image 2 bottom) */}
+                <button
+                  onClick={() => {
+                    setActiveTab("user-security");
+                    markBadgeSeen("security");
+                  }}
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition cursor-pointer ${
+                    activeTab === "user-security"
+                      ? "bg-blue-600 text-white font-semibold shadow-md shadow-blue-900/30 ring-1 ring-blue-400"
+                      : "hover:bg-slate-800 hover:text-white"
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <ShieldCheck className="h-4 w-4 text-emerald-400" />
+                    <span>Security</span>
+                  </div>
+                  {!seenBadges.security && (
+                    <span className="text-[10px] px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 font-bold">
+                      10 Active
+                    </span>
+                  )}
+                </button>
+
+                {/* 12. Settings */}
+                <button
+                  onClick={() => setActiveTab("settings")}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition cursor-pointer ${
+                    activeTab === "settings"
+                      ? "bg-blue-600 text-white font-semibold shadow-sm"
+                      : "hover:bg-slate-800 hover:text-white"
+                  }`}
+                >
+                  <SettingsIcon className="h-4 w-4 text-slate-400" />
+                  <span>Settings</span>
                 </button>
               </>
             )}
           </nav>
         </div>
 
-        {/* Encrypted Storage Bar & Sign Out */}
-        <div className="space-y-4 pt-6 border-t border-slate-800">
+        {/* Bottom Storage Widget & Sign Out */}
+        <div className="space-y-4 pt-4 border-t border-slate-800">
           {user.role === "admin" ? (
-            <div className="p-3.5 bg-slate-800/70 rounded-2xl border border-slate-700/60 text-xs">
-              <div className="flex items-center gap-2 text-amber-400 font-semibold mb-1">
-                <ShieldCheck className="h-4 w-4 text-amber-400" />
-                <span>Admin Telemetry Mode</span>
-              </div>
-              <p className="text-[11px] text-slate-400 leading-relaxed">
-                System telemetry, user RBAC moderation, and security audit logs are actively monitored.
-              </p>
-            </div>
-          ) : (
-            <div className="p-3.5 bg-slate-800/70 rounded-2xl border border-slate-700/60 text-xs">
-              <div className="flex items-center justify-between text-slate-300 mb-1.5 font-medium">
-                <div className="flex items-center gap-1.5">
-                  <HardDrive className="h-3.5 w-3.5 text-blue-400" />
-                  <span className="font-semibold">Vault Storage</span>
-                </div>
-                <span className="text-slate-400 font-mono text-[11px]">
-                  {formatBytes(userStorageBytes)} / 500 MB
-                </span>
+            /* Admin Storage Usage Widget (100% Dynamic from live backend telemetry) */
+            <div className="p-3.5 bg-slate-800/80 rounded-2xl border border-slate-700/60 text-xs">
+              <div className="flex items-center gap-2 text-slate-300 font-medium mb-1.5">
+                <HardDrive className="h-3.5 w-3.5 text-blue-400" />
+                <span className="font-semibold">Storage Usage</span>
               </div>
               <div className="w-full bg-slate-700 rounded-full h-2 overflow-hidden my-2">
                 <div
-                  className={`h-2 rounded-full transition-all duration-500 ${
-                    storagePercent > 90
-                      ? "bg-rose-500"
-                      : storagePercent > 70
-                      ? "bg-amber-500"
-                      : "bg-blue-500"
-                  }`}
-                  style={{ width: `${Math.max(storagePercent, 1)}%` }}
+                  className="h-2 rounded-full bg-blue-500 transition-all duration-500"
+                  style={{
+                    width: `${Math.min(
+                      100,
+                      Math.max(
+                        adminAnalytics?.storage?.total_bytes ? 1 : 0,
+                        Math.round(((adminAnalytics?.storage?.total_bytes || 0) / (1024 ** 4)) * 100)
+                      )
+                    )}%`
+                  }}
                 />
               </div>
-              <div className="flex items-center justify-between text-[11px] text-slate-400 pt-0.5">
-                <span>{storagePercent}% used</span>
-                <span className="text-emerald-400 font-bold font-mono">
-                  {formatBytes(userRemainingBytes)} free
+              <div className="flex items-center justify-between text-[11px] text-slate-400">
+                <span className="font-mono">
+                  {formatBytes(adminAnalytics?.storage?.total_bytes || 0)} / 1 TB
+                </span>
+                <span className="font-semibold text-slate-300">
+                  {Math.min(
+                    100,
+                    Math.round(((adminAnalytics?.storage?.total_bytes || 0) / (1024 ** 4)) * 100)
+                  )}%
                 </span>
               </div>
-              <p className="text-[10px] text-slate-500 mt-1.5">
-                AES-256 GCM • 500 MB individual quota
-              </p>
+            </div>
+          ) : (
+            /* Regular User Storage Widget (100% Dynamic from real user quota) */
+            <div className="p-3.5 bg-slate-800/80 rounded-2xl border border-slate-700/60 text-xs">
+              <div className="flex items-center gap-3">
+                {/* Dynamic Circular Gauge */}
+                <div className="relative w-11 h-11 flex items-center justify-center shrink-0">
+                  <svg className="w-11 h-11 -rotate-90 transform" viewBox="0 0 36 36">
+                    <circle cx="18" cy="18" r="15.915" fill="none" stroke="#334155" strokeWidth="3.5" />
+                    <circle
+                      cx="18"
+                      cy="18"
+                      r="15.915"
+                      fill="none"
+                      stroke="#3B82F6"
+                      strokeWidth="3.5"
+                      strokeDasharray={`${Math.min(100, storagePercent || 0)}, 100`}
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                  <span className="absolute text-[10px] font-bold text-white">
+                    {storagePercent}%
+                  </span>
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-white leading-tight">
+                    {formatBytes(userStorageBytes)} / 500 MB
+                  </p>
+                  <p className="text-[10px] text-slate-400">Used Storage</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => showToast("Storage tier: 500 MB AES-256 encrypted quota active.", "info")}
+                className="w-full mt-3 py-1.5 px-3 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/30 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition cursor-pointer"
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                <span>Encrypted Tier</span>
+              </button>
             </div>
           )}
 
@@ -1082,12 +1769,15 @@ export default function DashboardPage() {
               <div className="relative">
                 <button
                   type="button"
-                  onClick={() => setShowNotificationsModal(true)}
+                  onClick={() => {
+                    setShowNotificationsModal(true);
+                    markBadgeSeen("alerts");
+                  }}
                   title="Security Alerts & Incorrect Logins"
                   className="relative p-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition cursor-pointer border border-slate-200"
                 >
                   <Bell className="h-4 w-4" />
-                  {securityAlerts.count > 0 && (
+                  {!seenBadges.alerts && securityAlerts.count > 0 && (
                     <span className="absolute -top-1 -right-1 h-5 min-w-[20px] px-1 bg-rose-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center animate-pulse">
                       {securityAlerts.count}
                     </span>
@@ -1109,7 +1799,11 @@ export default function DashboardPage() {
 
             <div className="h-8 w-px bg-slate-200" />
 
-            <div className="flex items-center gap-3">
+            <div
+              onClick={() => setActiveTab("settings")}
+              className="flex items-center gap-3 cursor-pointer p-1 rounded-xl hover:bg-slate-100 transition"
+              title="View and Edit Profile Settings"
+            >
               <div className="h-8 w-8 rounded-full bg-blue-100 text-blue-700 font-bold text-xs flex items-center justify-center border border-blue-200 shadow-2xs">
                 {avatarLetter}
               </div>
@@ -1131,6 +1825,98 @@ export default function DashboardPage() {
             </div>
           </div>
         </header>
+
+        {/* ================================================================== */}
+        {/* VIEW 0A: REGULAR USER FILE ANALYTICS (Matches Image 1) */}
+        {/* ================================================================== */}
+        {activeTab === "file-analytics" && (
+          <main className="p-6 md:p-8 space-y-6 flex-1 overflow-y-auto">
+            <UserFileAnalytics currentUser={user} />
+          </main>
+        )}
+
+        {/* ================================================================== */}
+        {/* VIEW 0B: USER SECURITY SECTION (Matches Image 2 bottom) */}
+        {/* ================================================================== */}
+        {activeTab === "user-security" && (
+          <main className="p-6 md:p-8 space-y-6 flex-1 overflow-y-auto">
+            <UserSecuritySection />
+          </main>
+        )}
+
+        {/* ================================================================== */}
+        {/* VIEW 0C: ADMIN SECURITY DASHBOARD (Strict RBAC - Matches Image 2 top) */}
+        {/* ================================================================== */}
+        {activeTab === "admin-security-dashboard" && (
+          <main className="p-6 md:p-8 space-y-6 flex-1 overflow-y-auto">
+            {user?.role !== "admin" ? (
+              <div className="p-8 max-w-lg mx-auto bg-rose-50 border border-rose-200 rounded-2xl text-center my-12 shadow-xs">
+                <ShieldAlert className="h-12 w-12 text-rose-600 mx-auto mb-3" />
+                <h3 className="text-lg font-bold text-rose-900">403 Forbidden - Access Denied</h3>
+                <p className="text-sm text-rose-700 mt-2">
+                  Administrator privileges are strictly required. Standard users cannot view the admin security telemetry dashboard.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("file-analytics")}
+                  className="mt-4 px-4 py-2 bg-rose-600 text-white rounded-xl text-xs font-semibold hover:bg-rose-700 transition cursor-pointer"
+                >
+                  Return to File Analytics
+                </button>
+              </div>
+            ) : (
+              <AdminSecurityDashboard />
+            )}
+          </main>
+        )}
+
+        {/* ================================================================== */}
+        {/* VIEW 0E: ADMIN SYSTEM MONITORING (Live Infrastructure Telemetry) */}
+        {/* ================================================================== */}
+        {activeTab === "system-monitoring" && (
+          <main className="p-6 md:p-8 space-y-6 flex-1 overflow-y-auto bg-slate-50">
+            {user?.role !== "admin" ? (
+              <div className="p-8 max-w-lg mx-auto bg-rose-50 border border-rose-200 rounded-2xl text-center my-12 shadow-xs">
+                <ShieldAlert className="h-12 w-12 text-rose-600 mx-auto mb-3" />
+                <h3 className="text-lg font-bold text-rose-900">403 Forbidden - Access Denied</h3>
+                <p className="text-sm text-rose-700 mt-2">
+                  Administrator privileges are strictly required. Standard users cannot view the system monitoring telemetry dashboard.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("file-analytics")}
+                  className="mt-4 px-4 py-2 bg-rose-600 text-white rounded-xl text-xs font-semibold hover:bg-rose-700 transition cursor-pointer"
+                >
+                  Return to File Analytics
+                </button>
+              </div>
+            ) : (
+              <AdminSystemMonitoring
+                currentUser={user}
+                onNavigate={(tab) => setActiveTab(tab)}
+              />
+            )}
+          </main>
+        )}
+
+        {/* ================================================================== */}
+        {/* VIEW 0D: USER SETTINGS & PROFILE EDIT */}
+        {/* ================================================================== */}
+        {activeTab === "settings" && (
+          <main className="p-6 md:p-8 space-y-6 flex-1 overflow-y-auto">
+            <UserSettingsSection
+              currentUser={user}
+              onUserUpdated={(updatedUser) => {
+                setUser(updatedUser);
+                try {
+                  localStorage.setItem("user", JSON.stringify(updatedUser));
+                } catch (e) {
+                  console.error("Failed to update user in localStorage", e);
+                }
+              }}
+            />
+          </main>
+        )}
 
         {/* ================================================================== */}
         {/* VIEW 1: ADMIN ANALYTICS & DASHBOARD (Only for Admin tab) */}
@@ -1164,6 +1950,13 @@ export default function DashboardPage() {
                 </button>
                 <button
                   type="button"
+                  onClick={() => setActiveTab("system-monitoring")}
+                  className="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition cursor-pointer"
+                >
+                  System Monitoring
+                </button>
+                <button
+                  type="button"
                   onClick={() => setAdminSubTab("users")}
                   className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
                     adminSubTab === "users"
@@ -1175,14 +1968,17 @@ export default function DashboardPage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setAdminSubTab("logs")}
+                  onClick={() => {
+                    setAdminSubTab("logs");
+                    fetchAdminLogs();
+                  }}
                   className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
                     adminSubTab === "logs"
                       ? "bg-purple-600 text-white shadow-xs"
                       : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
                   }`}
                 >
-                  Audit Logs ({adminAnalytics?.total_audit_events || 0})
+                  Audit Logs ({adminLogsTotal || adminAnalytics?.total_audit_events || 0})
                 </button>
               </div>
             </div>
@@ -1197,63 +1993,6 @@ export default function DashboardPage() {
                 {/* SUBTAB: OVERVIEW */}
                 {adminSubTab === "overview" && (
                   <div className="space-y-6">
-                    {/* Security Alerts Banner for Incorrect Logins */}
-                    {securityAlerts.count > 0 && (
-                      <div className="bg-rose-50 border border-rose-200 rounded-2xl p-5 shadow-2xs">
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
-                          <div className="flex items-center gap-3">
-                            <div className="p-2.5 rounded-xl bg-rose-100 text-rose-700">
-                              <ShieldAlert className="h-6 w-6" />
-                            </div>
-                            <div>
-                              <h3 className="text-sm font-bold text-rose-950 flex items-center gap-2">
-                                <span>Security Notification: {securityAlerts.count} Incorrect Login Attempt(s)</span>
-                                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-rose-200 text-rose-800">
-                                  Alert
-                                </span>
-                              </h3>
-                              <p className="text-xs text-rose-700 mt-0.5">
-                                Real-time telemetry detected invalid authentication attempts. Inspect IP and target accounts.
-                              </p>
-                            </div>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setAdminSubTab("logs");
-                              setLogFilterAction("LOGIN_FAILED");
-                            }}
-                            className="px-3.5 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold rounded-xl shadow-xs transition cursor-pointer self-start sm:self-auto shrink-0 flex items-center gap-1.5"
-                          >
-                            <span>Inspect in Audit Logs</span>
-                            <ChevronRight className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 pt-1">
-                          {securityAlerts.list.slice(0, 3).map((alert) => (
-                            <div key={alert.id} className="p-3 bg-white rounded-xl border border-rose-200/80 text-xs space-y-1 shadow-2xs">
-                              <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono">
-                                <span>{new Date(alert.timestamp).toLocaleTimeString()}</span>
-                                <span className="text-rose-700 font-bold px-1.5 py-0.2 bg-rose-50 rounded">FAILED</span>
-                              </div>
-                              <p className="font-semibold text-slate-800 truncate">
-                                Target: <span className="text-rose-900">{alert.username || "Unknown"}</span>
-                              </p>
-                              <div className="flex items-center justify-between text-[11px] text-slate-500 font-mono">
-                                <span>IP: {alert.ip_address}</span>
-                                {alert.details?.reason && (
-                                  <span className="text-rose-600 text-[10px] truncate max-w-[120px]" title={alert.details.reason}>
-                                    {alert.details.reason}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
                     {/* 4 Metric Cards */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                       {/* Total Users */}
@@ -1331,12 +2070,13 @@ export default function DashboardPage() {
                       </div>
                     </div>
 
-                    {/* Graphical Analytics Suite: Interactive 7-Day Activity Curves, Category Donut & User Storage Bars */}
+                    {/* Graphical Analytics Suite: Interactive Activity Curves, Category Donut & User Storage Bars */}
                     <AdminGraphicalAnalytics
                       adminAnalytics={adminAnalytics}
                       formatBytes={formatBytes}
                       onCleanAdminStorage={handleCleanAdminStorage}
                       isCleaningStorage={isCleaningAdminStorage}
+                      onRangeChange={(range) => fetchAdminData(range)}
                     />
 
                     {/* Infrastructure Health Status */}
@@ -1436,14 +2176,26 @@ export default function DashboardPage() {
                               </td>
                               <td className="px-5 py-3.5 text-slate-600 font-mono">{u.email}</td>
                               <td className="px-5 py-3.5">
-                                <select
-                                  value={u.role}
-                                  onChange={(e) => handleAdminChangeUserRole(u.id, e.target.value)}
-                                  className="px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-blue-600 cursor-pointer"
-                                >
-                                  <option value="admin">👑 Admin</option>
-                                  <option value="user">👤 User</option>
-                                </select>
+                                {u.role === "admin" ? (
+                                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-purple-50 text-purple-700 border border-purple-200">
+                                    <ShieldCheck className="h-3.5 w-3.5 text-purple-600 shrink-0" />
+                                    <span>Sole System Admin</span>
+                                  </span>
+                                ) : (
+                                  <select
+                                    value={u.role}
+                                    onChange={(e) => handleAdminChangeUserRole(u.id, e.target.value)}
+                                    className="px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-blue-600 cursor-pointer"
+                                  >
+                                    <option value="user">User</option>
+                                    <option
+                                      value="admin"
+                                      disabled={adminUsers.some((other) => other.role === "admin" && other.id !== u.id)}
+                                    >
+                                      Admin (Policy: Max 1 Admin)
+                                    </option>
+                                  </select>
+                                )}
                               </td>
                               <td className="px-5 py-3.5">
                                 <span
@@ -1483,33 +2235,365 @@ export default function DashboardPage() {
 
                 {/* SUBTAB: AUDIT LOGS STREAM */}
                 {adminSubTab === "logs" && (
-                  <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-2xs">
-                    <div className="p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-2xs space-y-0">
+                    {/* Header: Title, Telemetry Description & Global Controls */}
+                    <div className="p-5 border-b border-slate-100 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                       <div>
-                        <h2 className="text-base font-bold text-slate-900">Live MongoDB Security & Document Audit Logs</h2>
-                        <p className="text-xs text-slate-500">Chronological telemetry of every file upload, download, and login attempt</p>
+                        <div className="flex items-center gap-2">
+                          <div className="p-1.5 bg-purple-50 text-purple-700 rounded-lg">
+                            <Activity className="h-4 w-4" />
+                          </div>
+                          <h2 className="text-base font-bold text-slate-900">Live MongoDB Security & Document Audit Logs</h2>
+                        </div>
+                        <p className="text-xs text-slate-500 mt-1">
+                          Immutable append-only audit journal recording document access, file operations, cryptographic activities, and authorization events.
+                        </p>
                       </div>
 
-                      {/* Filter by action */}
+                      {/* Header Actions: Date Picker, Export, Refresh */}
                       <div className="flex flex-wrap items-center gap-2">
-                        <select
-                          value={logFilterAction}
-                          onChange={(e) => setLogFilterAction(e.target.value)}
-                          className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none"
-                        >
-                          <option value="ALL">All Actions</option>
-                          <option value="LOGIN_FAILED">🚨 LOGIN_FAILED (Incorrect Login)</option>
-                          <option value="LOGIN_SUCCESS">LOGIN_SUCCESS</option>
-                          <option value="FILE_UPLOAD">FILE_UPLOAD</option>
-                          <option value="FOLDER_CREATE">FOLDER_CREATE</option>
-                          <option value="FILE_DOWNLOAD">FILE_DOWNLOAD</option>
-                          <option value="PASSWORD_SET">PASSWORD_SET</option>
-                          <option value="USER_ROLE_UPDATED">USER_ROLE_UPDATED</option>
-                        </select>
+                        {/* Admin Logs Date Picker Popover */}
+                        <div className="relative" ref={adminLogsDatePickerRef}>
+                          <button
+                            type="button"
+                            onClick={() => setIsAdminLogsDatePickerOpen(!isAdminLogsDatePickerOpen)}
+                            className="inline-flex items-center gap-2 px-3.5 py-2 bg-slate-50 border border-slate-200 hover:border-slate-300 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 transition cursor-pointer shadow-2xs"
+                          >
+                            <Calendar className="h-3.5 w-3.5 text-purple-600" />
+                            <span>{adminLogsDateRangeLabel}</span>
+                            <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
+                          </button>
 
+                          {isAdminLogsDatePickerOpen && (
+                            <div className="absolute right-0 mt-2 w-80 bg-white rounded-2xl shadow-xl border border-slate-200 p-4 z-50 text-xs animate-in fade-in zoom-in-95 duration-150">
+                              <div className="flex items-center justify-between pb-2.5 border-b border-slate-100">
+                                <div>
+                                  <div className="font-bold text-slate-900 text-xs uppercase tracking-wider">Select Timeframe</div>
+                                  <p className="text-[10px] text-slate-400">Default period is Monthly (30 Days)</p>
+                                </div>
+                                <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 font-bold border border-purple-200">
+                                  {adminLogsStartDate ? "Custom Active" : "Monthly Active"}
+                                </span>
+                              </div>
+
+                              {/* Presets Grid */}
+                              <div className="grid grid-cols-2 gap-1.5 py-3">
+                                <button
+                                  type="button"
+                                  onClick={handleResetAdminLogsToDefaultMonthly}
+                                  className={`px-2.5 py-2 rounded-xl text-left font-semibold transition cursor-pointer flex items-center justify-between col-span-2 ${
+                                    adminLogsDays === 30 && !adminLogsStartDate
+                                      ? "bg-purple-600 text-white font-bold shadow-xs"
+                                      : "bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200/60"
+                                  }`}
+                                >
+                                  <span>Last 30 Days (Default: Monthly)</span>
+                                  {adminLogsDays === 30 && !adminLogsStartDate && (
+                                    <Check className="h-3.5 w-3.5 text-white" />
+                                  )}
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const cur = getCurrentMonthRange();
+                                    setAdminLogsDays(0);
+                                    setAdminLogsStartDate(cur.start);
+                                    setAdminLogsEndDate(cur.end);
+                                    setAdminLogsDateRangeLabel(cur.label);
+                                    setIsAdminLogsDatePickerOpen(false);
+                                    fetchAdminLogs({ days: 0, startDate: cur.start, endDate: cur.end });
+                                  }}
+                                  className={`px-2.5 py-1.5 rounded-lg text-left font-medium transition cursor-pointer ${
+                                    adminLogsStartDate === getCurrentMonthRange().start
+                                      ? "bg-purple-50 text-purple-700 font-bold border border-purple-200"
+                                      : "hover:bg-slate-50 text-slate-600"
+                                  }`}
+                                >
+                                  Current Month
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const prev = getPreviousMonthRange();
+                                    setAdminLogsDays(0);
+                                    setAdminLogsStartDate(prev.start);
+                                    setAdminLogsEndDate(prev.end);
+                                    setAdminLogsDateRangeLabel(prev.label);
+                                    setIsAdminLogsDatePickerOpen(false);
+                                    fetchAdminLogs({ days: 0, startDate: prev.start, endDate: prev.end });
+                                  }}
+                                  className={`px-2.5 py-1.5 rounded-lg text-left font-medium transition cursor-pointer ${
+                                    adminLogsStartDate === getPreviousMonthRange().start
+                                      ? "bg-purple-50 text-purple-700 font-bold border border-purple-200"
+                                      : "hover:bg-slate-50 text-slate-600"
+                                  }`}
+                                >
+                                  Previous Month
+                                </button>
+
+                                {[
+                                  { label: "Last 7 Days", days: 7 },
+                                  { label: "Last 14 Days", days: 14 },
+                                  { label: "Last 60 Days", days: 60 },
+                                  { label: "Last 90 Days", days: 90 },
+                                  { label: "Past Year", days: 365 },
+                                ].map((preset) => (
+                                  <button
+                                    key={preset.days}
+                                    type="button"
+                                    onClick={() => {
+                                      setAdminLogsDays(preset.days);
+                                      setAdminLogsStartDate("");
+                                      setAdminLogsEndDate("");
+                                      setAdminLogsDateRangeLabel(preset.label);
+                                      setIsAdminLogsDatePickerOpen(false);
+                                      fetchAdminLogs({ days: preset.days, startDate: "", endDate: "" });
+                                    }}
+                                    className={`px-2.5 py-1.5 rounded-lg text-left font-medium transition cursor-pointer ${
+                                      adminLogsDays === preset.days && !adminLogsStartDate
+                                        ? "bg-purple-50 text-purple-700 font-bold border border-purple-200"
+                                        : "hover:bg-slate-50 text-slate-600"
+                                    }`}
+                                  >
+                                    {preset.label}
+                                  </button>
+                                ))}
+                              </div>
+
+                              {/* Custom Date Range Section */}
+                              <div className="pt-3 border-t border-slate-100">
+                                <div className="font-semibold text-slate-800 mb-2 text-[11px] uppercase tracking-wider flex items-center justify-between">
+                                  <span>Custom Date Range</span>
+                                  {adminLogsStartDate && (
+                                    <button
+                                      type="button"
+                                      onClick={handleResetAdminLogsToDefaultMonthly}
+                                      className="text-[10px] text-purple-600 hover:text-purple-800 flex items-center gap-1 font-semibold"
+                                    >
+                                      <RotateCcw className="h-3 w-3" />
+                                      <span>Reset to Monthly</span>
+                                    </button>
+                                  )}
+                                </div>
+                                <div className="space-y-2">
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <div>
+                                      <label className="block text-[10px] text-slate-400 mb-0.5">Start Date</label>
+                                      <input
+                                        type="date"
+                                        value={adminLogsCustomStart}
+                                        onChange={(e) => setAdminLogsCustomStart(e.target.value)}
+                                        className="w-full px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono text-slate-700 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                                      />
+                                    </div>
+                                    <div>
+                                      <label className="block text-[10px] text-slate-400 mb-0.5">End Date</label>
+                                      <input
+                                        type="date"
+                                        value={adminLogsCustomEnd}
+                                        onChange={(e) => setAdminLogsCustomEnd(e.target.value)}
+                                        className="w-full px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono text-slate-700 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                                      />
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-2 pt-1">
+                                    <button
+                                      type="button"
+                                      disabled={!adminLogsCustomStart || !adminLogsCustomEnd}
+                                      onClick={() => {
+                                        if (!adminLogsCustomStart || !adminLogsCustomEnd) {
+                                          showToast("Please choose both Start Date and End Date.", "error");
+                                          return;
+                                        }
+                                        if (adminLogsCustomStart > adminLogsCustomEnd) {
+                                          showToast("Start Date cannot be after End Date.", "error");
+                                          return;
+                                        }
+                                        setAdminLogsStartDate(adminLogsCustomStart);
+                                        setAdminLogsEndDate(adminLogsCustomEnd);
+                                        setAdminLogsDays(0);
+                                        setAdminLogsDateRangeLabel(`${adminLogsCustomStart} to ${adminLogsCustomEnd}`);
+                                        setIsAdminLogsDatePickerOpen(false);
+                                        fetchAdminLogs({ days: 0, startDate: adminLogsCustomStart, endDate: adminLogsCustomEnd });
+                                      }}
+                                      className="flex-1 py-1.5 bg-purple-600 hover:bg-purple-700 disabled:bg-slate-200 disabled:text-slate-400 text-white font-semibold rounded-lg transition cursor-pointer text-xs shadow-2xs text-center"
+                                    >
+                                      Apply Custom Range
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={handleResetAdminLogsToDefaultMonthly}
+                                      className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg transition cursor-pointer text-xs"
+                                    >
+                                      Reset
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Export to CSV Button */}
                         <button
                           type="button"
-                          onClick={() => setLogFilterAction(logFilterAction === "LOGIN_FAILED" ? "ALL" : "LOGIN_FAILED")}
+                          onClick={exportAdminLogsToCSV}
+                          title="Export currently filtered audit logs to CSV"
+                          className="inline-flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 hover:bg-slate-50 rounded-xl text-xs font-semibold text-slate-700 transition cursor-pointer shadow-2xs"
+                        >
+                          <Download className="h-3.5 w-3.5 text-slate-500" />
+                          <span>Export CSV</span>
+                        </button>
+
+                        {/* Refresh Button */}
+                        <button
+                          type="button"
+                          onClick={() => fetchAdminLogs()}
+                          className="p-2 rounded-xl border border-slate-200 hover:bg-slate-100 text-slate-500 hover:text-purple-600 transition cursor-pointer shadow-2xs"
+                          title="Refresh Audit Logs"
+                        >
+                          <RefreshCw className={`h-4 w-4 ${loadingAdminLogs ? "animate-spin text-purple-600" : ""}`} />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Summary Metric Ribbon for the Selected Timeframe */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 p-5 bg-slate-50/70 border-b border-slate-100">
+                      <div className="bg-white p-3 rounded-xl border border-slate-200/80 shadow-2xs">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                          Total Telemetry Events
+                        </span>
+                        <div className="flex items-baseline gap-2 mt-1">
+                          <span className="text-xl font-bold text-slate-900">{adminLogsTotal || adminLogs.length}</span>
+                          <span className="text-[11px] text-slate-500 font-medium">in window</span>
+                        </div>
+                      </div>
+
+                      <div className="bg-white p-3 rounded-xl border border-slate-200/80 shadow-2xs">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                          Document & File Actions
+                        </span>
+                        <div className="flex items-baseline gap-2 mt-1">
+                          <span className="text-xl font-bold text-slate-900">
+                            {(adminLogsActionCounts["FILE_UPLOAD"] || 0) +
+                              (adminLogsActionCounts["FILE_DOWNLOAD"] || 0) +
+                              (adminLogsActionCounts["FILE_DELETED"] || 0) +
+                              (adminLogsActionCounts["FOLDER_CREATE"] || 0)}
+                          </span>
+                          <span className="text-[11px] text-emerald-600 font-medium">Vault Activities</span>
+                        </div>
+                      </div>
+
+                      <div className="bg-white p-3 rounded-xl border border-slate-200/80 shadow-2xs">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                          Authentication Events
+                        </span>
+                        <div className="flex items-baseline gap-2 mt-1">
+                          <span className="text-xl font-bold text-slate-900">
+                            {(adminLogsActionCounts["LOGIN_SUCCESS"] || 0) +
+                              (adminLogsActionCounts["LOGIN_FAILED"] || 0) +
+                              (adminLogsActionCounts["OAUTH_LOGIN"] || 0)}
+                          </span>
+                          <span className="text-[11px] text-blue-600 font-medium">Logins Logged</span>
+                        </div>
+                      </div>
+
+                      <div className="bg-white p-3 rounded-xl border border-slate-200/80 shadow-2xs">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                          Filter Timeframe
+                        </span>
+                        <div className="flex items-center gap-1.5 mt-1 truncate">
+                          {adminLogsStartDate ? (
+                            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">
+                              Custom Range
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                              Monthly (Default)
+                            </span>
+                          )}
+                          <span className="text-[11px] text-slate-500 truncate" title={adminLogsDateRangeLabel}>
+                            {adminLogsDateRangeLabel}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Secondary Filter & Search Toolbar */}
+                    <div className="p-4 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-3 bg-white">
+                      {/* Search Bar */}
+                      <div className="relative flex-1 max-w-md">
+                        <Search className="h-4 w-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                        <input
+                          type="text"
+                          value={adminLogsSearch}
+                          onChange={(e) => setAdminLogsSearch(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              fetchAdminLogs({ search: adminLogsSearch });
+                            }
+                          }}
+                          placeholder="Search username, filename, IP address, action..."
+                          className="w-full pl-9 pr-20 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-purple-500 focus:bg-white transition"
+                        />
+                        {adminLogsSearch && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setAdminLogsSearch("");
+                              fetchAdminLogs({ search: "" });
+                            }}
+                            className="absolute right-12 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => fetchAdminLogs({ search: adminLogsSearch })}
+                          className="absolute right-1.5 top-1/2 -translate-y-1/2 px-2.5 py-1 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-[10px] font-bold transition cursor-pointer"
+                        >
+                          Search
+                        </button>
+                      </div>
+
+                      {/* Action Filter & Failed Logins Toggle */}
+                      <div className="flex flex-wrap items-center gap-2">
+                        {/* Action Dropdown */}
+                        <div className="flex items-center gap-1.5">
+                          <Filter className="h-3.5 w-3.5 text-slate-400" />
+                          <select
+                            value={logFilterAction}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setLogFilterAction(val);
+                              fetchAdminLogs({ action: val });
+                            }}
+                            className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:ring-1 focus:ring-purple-500 cursor-pointer"
+                          >
+                            <option value="ALL">All Event Types</option>
+                            <option value="LOGIN_SUCCESS">LOGIN_SUCCESS (Authentication)</option>
+                            <option value="LOGIN_FAILED">LOGIN_FAILED (Security Alert)</option>
+                            <option value="FILE_UPLOAD">FILE_UPLOAD (Encryption)</option>
+                            <option value="FILE_DOWNLOAD">FILE_DOWNLOAD (Decryption)</option>
+                            <option value="FILE_DELETED">FILE_DELETED (Removal)</option>
+                            <option value="FOLDER_CREATE">FOLDER_CREATE (Hierarchy)</option>
+                            <option value="USER_PROFILE_UPDATED">USER_PROFILE_UPDATED (Account)</option>
+                            <option value="USER_ROLE_UPDATED">USER_ROLE_UPDATED (RBAC)</option>
+                            <option value="ADMIN_STORAGE_CLEANED">ADMIN_STORAGE_CLEANED (Maintenance)</option>
+                          </select>
+                        </div>
+
+                        {/* Quick Failed Logins Only Button */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const nextAction = logFilterAction === "LOGIN_FAILED" ? "ALL" : "LOGIN_FAILED";
+                            setLogFilterAction(nextAction);
+                            fetchAdminLogs({ action: nextAction });
+                          }}
                           className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition cursor-pointer flex items-center gap-1.5 ${
                             logFilterAction === "LOGIN_FAILED"
                               ? "bg-rose-600 text-white border-rose-600 shadow-xs"
@@ -1520,52 +2604,76 @@ export default function DashboardPage() {
                           <span>{logFilterAction === "LOGIN_FAILED" ? "Show All Actions" : "Failed Logins Only"}</span>
                         </button>
 
-                        <button
-                          onClick={fetchAdminData}
-                          className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 text-slate-500 transition cursor-pointer"
-                        >
-                          <RefreshCw className="h-4 w-4" />
-                        </button>
+                        {/* Reset to Monthly if Custom Range is Active */}
+                        {adminLogsStartDate && (
+                          <button
+                            type="button"
+                            onClick={handleResetAdminLogsToDefaultMonthly}
+                            className="px-3 py-1.5 rounded-xl text-xs font-semibold border border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100 transition cursor-pointer flex items-center gap-1"
+                            title="Reset back to default monthly view"
+                          >
+                            <RotateCcw className="h-3 w-3" />
+                            <span>Monthly Default</span>
+                          </button>
+                        )}
                       </div>
                     </div>
 
-                    <div className="overflow-x-auto">
+                    {/* Table View */}
+                    <div className="overflow-x-auto relative min-h-[250px]">
+                      {loadingAdminLogs && (
+                        <div className="absolute inset-0 bg-white/70 backdrop-blur-2xs flex items-center justify-center z-10">
+                          <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white shadow-md border border-slate-200 text-xs font-bold text-slate-700">
+                            <RefreshCw className="h-4 w-4 animate-spin text-purple-600" />
+                            <span>Filtering MongoDB Audit Records...</span>
+                          </div>
+                        </div>
+                      )}
+
                       <table className="w-full text-left text-xs">
                         <thead className="bg-slate-50 text-slate-500 uppercase font-semibold border-b border-slate-200">
                           <tr>
-                            <th className="px-5 py-3">Timestamp</th>
-                            <th className="px-5 py-3">User</th>
-                            <th className="px-5 py-3">Action</th>
-                            <th className="px-5 py-3">Details / Target</th>
-                            <th className="px-5 py-3">IP Address</th>
+                            <th className="px-5 py-3">Timestamp (UTC / Local)</th>
+                            <th className="px-5 py-3">User / Actor</th>
+                            <th className="px-5 py-3">Action Type</th>
+                            <th className="px-5 py-3">Target Asset / Details</th>
+                            <th className="px-5 py-3">Client IP Address</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 text-slate-700">
                           {adminLogs.map((log) => (
-                            <tr key={log.id} className="hover:bg-slate-50/70 transition">
-                              <td className="px-5 py-3 text-slate-400 font-mono text-[11px]">
-                                {new Date(log.timestamp).toLocaleString()}
+                            <tr key={log.id} className="hover:bg-slate-50/80 transition">
+                              <td className="px-5 py-3.5 text-slate-500 font-mono text-[11px] whitespace-nowrap">
+                                <div>{new Date(log.timestamp).toLocaleString()}</div>
+                                <div className="text-[10px] text-slate-400 font-normal">
+                                  {log.timestamp ? log.timestamp.split("T")[0] : ""}
+                                </div>
                               </td>
-                              <td className="px-5 py-3 font-semibold text-slate-800">
-                                {log.username || "Anonymous"}
+                              <td className="px-5 py-3.5 font-semibold text-slate-800">
+                                <div className="flex items-center gap-2">
+                                  <div className="h-6 w-6 rounded-full bg-slate-100 border border-slate-200 text-slate-700 flex items-center justify-center text-[10px] font-bold">
+                                    {(log.username || "S").charAt(0).toUpperCase()}
+                                  </div>
+                                  <span>{log.username || "System"}</span>
+                                </div>
                               </td>
-                              <td className="px-5 py-3">
+                              <td className="px-5 py-3.5">
                                 <span
-                                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-mono text-[10px] font-bold ${
+                                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg font-mono text-[10px] font-bold border ${
                                     log.action.includes("DELETE") || log.action.includes("FAILED")
-                                      ? "bg-rose-100 text-rose-700 border border-rose-200"
+                                      ? "bg-rose-50 text-rose-700 border-rose-200"
                                       : log.action.includes("UPLOAD") || log.action.includes("SUCCESS")
-                                      ? "bg-emerald-100 text-emerald-700 border border-emerald-200"
-                                      : log.action.includes("PASSWORD")
-                                      ? "bg-amber-100 text-amber-700 border border-amber-200"
-                                      : "bg-blue-100 text-blue-700 border border-blue-200"
+                                      ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                      : log.action.includes("PASSWORD") || log.action.includes("ROLE")
+                                      ? "bg-amber-50 text-amber-700 border border-amber-200"
+                                      : "bg-blue-50 text-blue-700 border border-blue-200"
                                   }`}
                                 >
                                   {log.action.includes("FAILED") && <ShieldAlert className="h-3 w-3 text-rose-600" />}
                                   {log.action}
                                 </span>
                               </td>
-                              <td className="px-5 py-3 font-medium text-slate-700">
+                              <td className="px-5 py-3.5 font-medium text-slate-700 max-w-xs truncate">
                                 {log.details?.reason ? (
                                   <span className="text-rose-700 italic">
                                     {log.details.reason}
@@ -1574,20 +2682,45 @@ export default function DashboardPage() {
                                   log.resource_name || "-"
                                 )}
                               </td>
-                              <td className="px-5 py-3 text-slate-400 font-mono">
-                                {log.ip_address}
+                              <td className="px-5 py-3.5 text-slate-500 font-mono text-[11px]">
+                                {log.ip_address || "127.0.0.1"}
                               </td>
                             </tr>
                           ))}
-                          {adminLogs.length === 0 && (
+                          {adminLogs.length === 0 && !loadingAdminLogs && (
                             <tr>
-                              <td colSpan="5" className="text-center py-8 text-slate-400">
-                                No audit records found for this filter.
+                              <td colSpan="5" className="text-center py-12 text-slate-400">
+                                <Activity className="h-8 w-8 text-slate-300 mx-auto mb-2" />
+                                <p className="font-semibold text-slate-700 text-sm">No audit records found in this timeframe</p>
+                                <p className="text-xs text-slate-400 mt-1 max-w-md mx-auto">
+                                  There are no logged activities matching the selected timeframe ({adminLogsDateRangeLabel}). Try switching back to the default monthly view or broadening the date filter.
+                                </p>
+                                <button
+                                  type="button"
+                                  onClick={handleResetAdminLogsToDefaultMonthly}
+                                  className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-semibold transition cursor-pointer shadow-xs"
+                                >
+                                  <RotateCcw className="h-3 w-3" />
+                                  <span>Reset to Default Monthly (Last 30 Days)</span>
+                                </button>
                               </td>
                             </tr>
                           )}
                         </tbody>
                       </table>
+                    </div>
+
+                    {/* Table Footer: Total Count & Pagination Indicator */}
+                    <div className="p-3.5 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+                      <div>
+                        Showing <span className="font-bold text-slate-700">{adminLogs.length}</span> of{" "}
+                        <span className="font-bold text-slate-700">{adminLogsTotal || adminLogs.length}</span> records
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-[11px] text-slate-400">
+                          Telemetry: MongoDB activity_logs
+                        </span>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -1601,7 +2734,15 @@ export default function DashboardPage() {
         {/* ================================================================== */}
         {/* VIEW 2: GOOGLE DRIVE-STYLE USER VAULT (Default Vault View) */}
         {/* ================================================================== */}
-        {activeTab !== "admin-analytics" && activeTab !== "user-activity" && (
+        {![
+          "admin-analytics",
+          "admin-security-dashboard",
+          "system-monitoring",
+          "settings",
+          "file-analytics",
+          "user-security",
+          "user-activity"
+        ].includes(activeTab) && (
           <main className="p-6 md:p-8 space-y-6 flex-1 overflow-y-auto">
             {/* Action Row & Breadcrumbs */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -1625,12 +2766,18 @@ export default function DashboardPage() {
 
                 <h1 className="text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
                   <span>
-                    {activeTab === "starred"
-                      ? "Starred Assets"
+                    {activeTab === "starred" || activeTab === "favorites"
+                      ? "Favorites & Starred"
                       : activeTab === "recent"
                       ? "Recent Uploads"
                       : activeTab === "shared"
-                      ? "Shared Files"
+                      ? "Shared by Me"
+                      : activeTab === "shared-with-me"
+                      ? "Shared with Me"
+                      : activeTab === "trash"
+                      ? "Trash & Deleted Items"
+                      : activeTab === "my-files"
+                      ? "My Files"
                       : currentFolderDetails
                       ? currentFolderDetails.name
                       : "Encrypted Workspace"}
@@ -1642,19 +2789,25 @@ export default function DashboardPage() {
                   )}
                 </h1>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  {activeTab === "starred"
+                  {activeTab === "starred" || activeTab === "favorites"
                     ? "Your favorited and bookmarked assets for instant access"
                     : activeTab === "recent"
                     ? "Chronological view of files uploaded recently across your workspace"
                     : activeTab === "shared"
-                    ? "Files secured with access passcodes and direct collaborative links"
+                    ? "Files you have shared with collaborators and guests"
+                    : activeTab === "shared-with-me"
+                    ? "Encrypted files and folders shared with you by other team members"
+                    : activeTab === "trash"
+                    ? "Items in trash can be restored or permanently expunged"
+                    : activeTab === "my-files"
+                    ? "Complete enterprise file explorer with folder hierarchies and AES-256 protection"
                     : "Google Drive-style encrypted document vault with folder-wise hierarchy & password permissions"}
                 </p>
               </div>
 
               {/* Contextual Action Buttons */}
               <div className="flex items-center gap-2">
-                {activeTab === "my-vault" && (
+                {(activeTab === "my-vault" || activeTab === "my-files") && (
                   <>
                     <button
                       type="button"
@@ -1688,8 +2841,8 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* Dynamic Real Vault Metrics Strip */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
+            {/* Dynamic Real Vault Metrics Strip (With Shared Documents Count) */}
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 pt-1">
               {/* Card 1: Real Total Files */}
               <div className="p-3.5 bg-white rounded-xl border border-slate-200 shadow-2xs">
                 <div className="flex items-center justify-between text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
@@ -1722,7 +2875,32 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              {/* Card 3: Real Protected Assets */}
+              {/* Card 3: Real Shared Documents Count (Milestone 2 User Request) */}
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab("shared");
+                  setCurrentFolderId(null);
+                }}
+                className={`p-3.5 bg-white rounded-xl border text-left transition cursor-pointer ${
+                  activeTab === "shared"
+                    ? "border-sky-500 ring-2 ring-sky-500/20 bg-sky-50/40"
+                    : "border-slate-200 hover:border-sky-300 hover:bg-sky-50/20 shadow-2xs"
+                }`}
+              >
+                <div className="flex items-center justify-between text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+                  <span>Shared Documents</span>
+                  <Share2 className="h-4 w-4 text-sky-500" />
+                </div>
+                <div className="mt-1 flex items-baseline gap-1.5">
+                  <span className="text-xl font-bold text-sky-600">
+                    {userSharedFilesCount}
+                  </span>
+                  <span className="text-xs text-sky-700 font-medium">Active Secure Shares</span>
+                </div>
+              </button>
+
+              {/* Card 4: Real Protected Assets */}
               <div className="p-3.5 bg-white rounded-xl border border-slate-200 shadow-2xs">
                 <div className="flex items-center justify-between text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
                   <span>Protected</span>
@@ -1736,7 +2914,7 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              {/* Card 4: Real Starred Assets */}
+              {/* Card 5: Real Starred Assets */}
               <div className="p-3.5 bg-white rounded-xl border border-slate-200 shadow-2xs">
                 <div className="flex items-center justify-between text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
                   <span>Starred</span>
@@ -1869,14 +3047,45 @@ export default function DashboardPage() {
                     <Share2 className="h-7 w-7 text-sky-500" />
                   </div>
                   <h3 className="text-base font-semibold text-slate-800">
-                    No shared files
+                    No files shared by you yet
                   </h3>
                   <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
-                    Files protected with passcodes or shared with team members will appear here.
+                    Share files securely with collaborators and guests using the share button on any vault file.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("my-vault")}
+                    className="mt-4 px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-xs font-semibold hover:bg-slate-200 transition cursor-pointer"
+                  >
+                    Go to My Vault
+                  </button>
+                </div>
+              ) : activeTab === "shared-with-me" ? (
+                <div className="border border-slate-200 rounded-2xl p-12 text-center bg-white/70 shadow-2xs">
+                  <div className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-blue-50 flex items-center justify-center">
+                    <Users className="h-7 w-7 text-blue-500" />
+                  </div>
+                  <h3 className="text-base font-semibold text-slate-800">
+                    No files shared with you yet
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
+                    Encrypted files and folders shared with you by other team members will appear here automatically.
+                  </p>
+                </div>
+              ) : activeTab === "trash" ? (
+                <div className="border border-slate-200 rounded-2xl p-12 text-center bg-white/70 shadow-2xs">
+                  <div className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-rose-50 flex items-center justify-center">
+                    <Trash2 className="h-7 w-7 text-rose-500" />
+                  </div>
+                  <h3 className="text-base font-semibold text-slate-800">
+                    Trash is empty
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
+                    Items you delete from your vault will appear here. You can restore them or permanently expunge them.
                   </p>
                 </div>
               ) : (
-                /* Empty Dropzone State for My Vault */
+                /* Empty Dropzone State ONLY for My Vault & Folders */
                 <div
                   onClick={() => fileInputRef.current?.click()}
                   className="border-2 border-dashed border-slate-200 rounded-2xl p-12 text-center hover:border-blue-400 bg-white/60 transition cursor-pointer"
@@ -1890,7 +3099,7 @@ export default function DashboardPage() {
                   </p>
                   <button
                     type="button"
-                    className="mt-4 px-4 py-2 bg-blue-50 text-blue-600 rounded-xl text-xs font-semibold hover:bg-blue-100 transition"
+                    className="mt-4 px-4 py-2 bg-blue-50 text-blue-600 rounded-xl text-xs font-semibold hover:bg-blue-100 transition cursor-pointer"
                   >
                     Choose Files to Upload
                   </button>
@@ -2049,6 +3258,12 @@ export default function DashboardPage() {
                             {/* Footer Badges & Actions */}
                             <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
                               <div className="flex items-center gap-1.5">
+                                {file.is_shared && (
+                                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-sky-700 bg-sky-50 px-2 py-0.5 rounded-full border border-sky-200">
+                                    <Share2 className="h-2.5 w-2.5" />
+                                    <span>Shared</span>
+                                  </span>
+                                )}
                                 {file.is_password_protected ? (
                                   <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
                                     <Lock className="h-2.5 w-2.5" />
@@ -2071,9 +3286,9 @@ export default function DashboardPage() {
                                   <Download className="h-4 w-4" />
                                 </button>
                                 <button
-                                  onClick={() => setShareModalItem(file)}
+                                  onClick={() => openShareModal(file)}
                                   title="Share Link"
-                                  className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition cursor-pointer"
+                                  className="p-1.5 text-slate-400 hover:text-sky-600 hover:bg-slate-100 rounded-lg transition cursor-pointer"
                                 >
                                   <Share2 className="h-4 w-4" />
                                 </button>
@@ -2156,23 +3371,40 @@ export default function DashboardPage() {
                             {item.is_folder ? "-" : formatBytes(item.file_size)}
                           </td>
                           <td className="px-5 py-3.5">
-                            {item.is_password_protected ? (
-                              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
-                                <Lock className="h-3 w-3" />
-                                <span>Locked</span>
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">
-                                <ShieldCheck className="h-3 w-3" />
-                                <span>AES-256</span>
-                              </span>
-                            )}
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              {item.is_shared && (
+                                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-sky-700 bg-sky-50 px-2 py-0.5 rounded-full border border-sky-200">
+                                  <Share2 className="h-3 w-3" />
+                                  <span>Shared</span>
+                                </span>
+                              )}
+                              {item.is_password_protected ? (
+                                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                                  <Lock className="h-3 w-3" />
+                                  <span>Locked</span>
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">
+                                  <ShieldCheck className="h-3 w-3" />
+                                  <span>AES-256</span>
+                                </span>
+                              )}
+                            </div>
                           </td>
                           <td className="px-5 py-3.5 text-slate-400 font-mono text-[11px]">
                             {new Date(item.created_at).toLocaleDateString()}
                           </td>
                           <td className="px-5 py-3.5 text-right">
                             <div className="inline-flex items-center gap-2">
+                              {!item.is_folder && (
+                                <button
+                                  onClick={() => openShareModal(item)}
+                                  title="Secure Share Link"
+                                  className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-sky-600 transition cursor-pointer"
+                                >
+                                  <Share2 className="h-4 w-4" />
+                                </button>
+                              )}
                               <button
                                 onClick={() => (item.is_folder ? triggerFolderDownload(item) : triggerFileDownload(item))}
                                 title="Download"
@@ -2227,7 +3459,7 @@ export default function DashboardPage() {
         {/* ================================================================== */}
         {activeTab === "user-activity" && (
           <main className="p-6 md:p-8 space-y-6 flex-1 overflow-y-auto">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
               <div>
                 <h1 className="text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
                   <Activity className="h-6 w-6 text-cyan-600" />
@@ -2238,22 +3470,143 @@ export default function DashboardPage() {
                 </p>
               </div>
 
-              <button
-                type="button"
-                onClick={fetchUserLogs}
-                disabled={loadingUserLogs}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-xl border border-slate-200 shadow-2xs transition cursor-pointer"
-              >
-                <RefreshCw className={`h-4 w-4 text-slate-600 ${loadingUserLogs ? "animate-spin" : ""}`} />
-                <span>Refresh Log</span>
-              </button>
+              {/* Controls: Date Range Popover, Action Filter, Refresh */}
+              <div className="flex flex-wrap items-center gap-2.5">
+                {/* Date Range Picker Popover */}
+                <div className="relative" ref={userLogsDatePickerRef}>
+                  <button
+                    type="button"
+                    onClick={() => setIsUserLogsDatePickerOpen(!isUserLogsDatePickerOpen)}
+                    className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer shadow-2xs"
+                  >
+                    <Calendar className="h-3.5 w-3.5 text-slate-500" />
+                    <span>{userLogsDateRangeLabel}</span>
+                    <ChevronDown className="h-3 w-3 text-slate-400" />
+                  </button>
+
+                  {isUserLogsDatePickerOpen && (
+                    <div className="absolute right-0 mt-2 w-72 bg-white rounded-2xl shadow-xl border border-slate-200 p-4 z-50 text-xs">
+                      <div className="font-bold text-slate-900 mb-2">Select Activity Period</div>
+                      <div className="grid grid-cols-2 gap-1.5 mb-3">
+                        {[
+                          { label: "Last 7 Days", days: 7 },
+                          { label: "Last 14 Days", days: 14 },
+                          { label: "Last 30 Days (Default: Month)", days: 30 },
+                          { label: "Last 60 Days", days: 60 },
+                          { label: "Last 90 Days", days: 90 },
+                          { label: "Past Year", days: 365 },
+                        ].map((preset) => (
+                          <button
+                            key={preset.days}
+                            type="button"
+                            onClick={() => {
+                              setUserLogsDays(preset.days);
+                              setUserLogsStartDate("");
+                              setUserLogsEndDate("");
+                              setUserLogsDateRangeLabel(preset.label);
+                              setIsUserLogsDatePickerOpen(false);
+                              fetchUserLogs({ days: preset.days, startDate: "", endDate: "" });
+                            }}
+                            className={`px-2.5 py-1.5 rounded-lg text-left font-medium transition cursor-pointer ${
+                              userLogsDays === preset.days && !userLogsStartDate
+                                ? "bg-cyan-50 text-cyan-700 font-bold border border-cyan-200"
+                                : "hover:bg-slate-50 text-slate-600"
+                            }`}
+                          >
+                            {preset.label}
+                          </button>
+                        ))}
+                      </div>
+
+                      <div className="pt-3 border-t border-slate-100">
+                        <div className="font-semibold text-slate-700 mb-2 text-[11px] uppercase tracking-wider">
+                          Custom Date Range
+                        </div>
+                        <div className="space-y-2">
+                          <div>
+                            <label className="block text-[10px] text-slate-400 mb-0.5">Start Date</label>
+                            <input
+                              type="date"
+                              value={userLogsCustomStart}
+                              onChange={(e) => setUserLogsCustomStart(e.target.value)}
+                              className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono text-slate-700 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] text-slate-400 mb-0.5">End Date</label>
+                            <input
+                              type="date"
+                              value={userLogsCustomEnd}
+                              onChange={(e) => setUserLogsCustomEnd(e.target.value)}
+                              className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono text-slate-700 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            disabled={!userLogsCustomStart || !userLogsCustomEnd}
+                            onClick={() => {
+                              if (!userLogsCustomStart || !userLogsCustomEnd) return;
+                              setUserLogsStartDate(userLogsCustomStart);
+                              setUserLogsEndDate(userLogsCustomEnd);
+                              setUserLogsDays(0);
+                              setUserLogsDateRangeLabel(`${userLogsCustomStart} to ${userLogsCustomEnd}`);
+                              setIsUserLogsDatePickerOpen(false);
+                              fetchUserLogs({ startDate: userLogsCustomStart, endDate: userLogsCustomEnd });
+                            }}
+                            className="w-full py-1.5 bg-cyan-600 hover:bg-cyan-700 disabled:bg-slate-200 disabled:text-slate-400 text-white font-semibold rounded-lg transition cursor-pointer text-xs shadow-2xs mt-1"
+                          >
+                            Apply Custom Range
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Filter by Action */}
+                <select
+                  value={userLogsActionFilter}
+                  onChange={(e) => {
+                    const act = e.target.value;
+                    setUserLogsActionFilter(act);
+                    fetchUserLogs({ action: act });
+                  }}
+                  className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:ring-1 focus:ring-cyan-500 shadow-2xs cursor-pointer"
+                >
+                  <option value="ALL">All Actions</option>
+                  <option value="FILE_UPLOAD">File Uploads</option>
+                  <option value="FILE_DOWNLOAD">File Downloads</option>
+                  <option value="FILE_DELETE">File Deletions</option>
+                  <option value="PASSWORD_SET">Password Protected</option>
+                  <option value="PASSWORD_REMOVED">Password Removed</option>
+                  <option value="LOGIN_SUCCESS">Login Success</option>
+                  <option value="USER_PROFILE_UPDATED">Profile Updates</option>
+                </select>
+
+                {/* Refresh Button */}
+                <button
+                  type="button"
+                  onClick={() => fetchUserLogs()}
+                  disabled={loadingUserLogs}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-xl border border-slate-200 shadow-2xs transition cursor-pointer"
+                  title="Refresh Log"
+                >
+                  <RefreshCw className={`h-3.5 w-3.5 text-slate-600 ${loadingUserLogs ? "animate-spin" : ""}`} />
+                  <span>Refresh</span>
+                </button>
+              </div>
             </div>
 
             <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-2xs">
               <div className="p-4 border-b border-slate-100 flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                  Recent Telemetry Events
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                    Recent Telemetry Events
+                  </span>
+                  <span className="text-[11px] px-2 py-0.5 rounded-full bg-cyan-50 text-cyan-700 font-mono font-medium border border-cyan-200">
+                    {userLogsDateRangeLabel}
+                  </span>
+                </div>
                 <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
                   {userLogs.length} Events Logged
                 </span>
@@ -2280,38 +3633,84 @@ export default function DashboardPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 text-slate-700">
-                      {userLogs.map((log) => (
-                        <tr key={log.id || log._id} className="hover:bg-slate-50/70 transition">
-                          <td className="px-5 py-3.5 font-mono text-[11px] text-slate-500 whitespace-nowrap">
-                            {new Date(log.timestamp).toLocaleString()}
-                          </td>
-                          <td className="px-5 py-3.5">
-                            <span
-                              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
-                                log.action.includes("FAILED") || log.action.includes("ALERT")
-                                  ? "bg-rose-50 text-rose-700 border border-rose-200"
-                                  : log.action.includes("UPLOAD")
-                                  ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                                  : log.action.includes("DOWNLOAD")
-                                  ? "bg-blue-50 text-blue-700 border border-blue-200"
-                                  : log.action.includes("DELETE") || log.action.includes("TRASH")
-                                  ? "bg-rose-50 text-rose-700 border border-rose-200"
-                                  : log.action.includes("PASSWORD")
-                                  ? "bg-amber-50 text-amber-700 border border-amber-200"
-                                  : "bg-slate-100 text-slate-700 border border-slate-200"
-                              }`}
-                            >
-                              {log.action}
-                            </span>
-                          </td>
-                          <td className="px-5 py-3.5 font-medium text-slate-800">
-                            {log.resource_name || log.resource_id || "-"}
-                          </td>
-                          <td className="px-5 py-3.5 text-slate-500 font-mono text-[11px]">
-                            {log.details ? JSON.stringify(log.details) : "-"}
-                          </td>
-                        </tr>
-                      ))}
+                      {userLogs.map((log) => {
+                        const renderCleanDetails = (details) => {
+                          if (!details || typeof details !== "object" || Object.keys(details).length === 0) {
+                            return <span className="text-slate-400">—</span>;
+                          }
+                          if (details.error || details.reason) {
+                            return (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-rose-50 text-rose-700 border border-rose-200 font-medium text-[11px]">
+                                <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0"></span>
+                                {details.error || details.reason}
+                              </span>
+                            );
+                          }
+                          const tags = [];
+                          if (details.size_bytes !== undefined && details.size_bytes !== null) {
+                            const b = details.size_bytes;
+                            const sizeStr = b >= 1024 * 1024 ? `${(b / (1024 * 1024)).toFixed(1)} MB` : b >= 1024 ? `${(b / 1024).toFixed(1)} KB` : `${b} B`;
+                            tags.push(`Size: ${sizeStr}`);
+                          }
+                          if (details.is_password_protected) {
+                            tags.push("Password Protected");
+                          }
+                          if (details.role) {
+                            tags.push(`Role: ${details.role.charAt(0).toUpperCase() + details.role.slice(1)}`);
+                          }
+                          if (details.category) {
+                            tags.push(`Category: ${details.category}`);
+                          }
+                          if (details.permission) {
+                            tags.push(`Permission: ${details.permission}`);
+                          }
+                          if (tags.length > 0) {
+                            return (
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                {tags.map((tag, tIdx) => (
+                                  <span key={tIdx} className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 text-[11px] font-medium border border-slate-200">
+                                    {tag}
+                                  </span>
+                                ))}
+                              </div>
+                            );
+                          }
+                          return <span className="text-slate-400">—</span>;
+                        };
+
+                        return (
+                          <tr key={log.id || log._id} className="hover:bg-slate-50/70 transition">
+                            <td className="px-5 py-3.5 font-mono text-[11px] text-slate-500 whitespace-nowrap">
+                              {new Date(log.timestamp).toLocaleString()}
+                            </td>
+                            <td className="px-5 py-3.5">
+                              <span
+                                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
+                                  log.action.includes("FAILED") || log.action.includes("ALERT")
+                                    ? "bg-rose-50 text-rose-700 border border-rose-200"
+                                    : log.action.includes("UPLOAD")
+                                    ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                    : log.action.includes("DOWNLOAD")
+                                    ? "bg-blue-50 text-blue-700 border border-blue-200"
+                                    : log.action.includes("DELETE") || log.action.includes("TRASH")
+                                    ? "bg-rose-50 text-rose-700 border border-rose-200"
+                                    : log.action.includes("PASSWORD")
+                                    ? "bg-amber-50 text-amber-700 border border-amber-200"
+                                    : "bg-slate-100 text-slate-700 border border-slate-200"
+                                }`}
+                              >
+                                {log.action}
+                              </span>
+                            </td>
+                            <td className="px-5 py-3.5 font-medium text-slate-800">
+                              {log.resource_name || log.resource_id || "-"}
+                            </td>
+                            <td className="px-5 py-3.5 text-xs text-slate-600">
+                              {renderCleanDetails(log.details)}
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -2775,60 +4174,367 @@ export default function DashboardPage() {
       )}
 
       {/* ==================================================================== */}
-      {/* MODAL 6: SHARE LINK MODAL */}
+      {/* MODAL 6: MILESTONE 2 ENCRYPTED SECURE SHARING & GUEST PASSWORD MODAL */}
       {/* ==================================================================== */}
       {shareModalItem && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <Share2 className="h-5 w-5 text-blue-600" />
-                <h3 className="font-bold text-slate-900">Share Workspace Asset</h3>
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 my-8 max-h-[90vh] flex flex-col">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="h-9 w-9 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center border border-sky-100">
+                  <Share2 className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-base">Milestone 2: Secure Sharing</h3>
+                  <p className="text-xs text-slate-500">AES-256 Envelope Encryption & Guest Passcode Gateway</p>
+                </div>
               </div>
               <button
                 onClick={() => {
                   setShareModalItem(null);
                   setCopiedLink(false);
                 }}
-                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg cursor-pointer"
+                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition cursor-pointer"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
 
-            <p className="text-xs text-slate-600 mb-3">
-              Direct access link for <strong>{shareModalItem.name}</strong>
-              {shareModalItem.is_password_protected && " (Password protected)"}:
-            </p>
-
-            <div className="flex items-center gap-2 p-2 bg-slate-50 rounded-xl border border-slate-200 mb-4">
-              <input
-                type="text"
-                readOnly
-                value={`${typeof window !== "undefined" ? window.location.origin : ""}/dashboard?item=${shareModalItem.id}`}
-                className="bg-transparent text-xs text-slate-700 w-full focus:outline-none font-mono"
-              />
-              <button
-                onClick={() => {
-                  navigator.clipboard.writeText(
-                    `${window.location.origin}/dashboard?item=${shareModalItem.id}`
-                  );
-                  setCopiedLink(true);
-                  setTimeout(() => setCopiedLink(false), 2000);
-                }}
-                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer"
-              >
-                {copiedLink ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-                <span>{copiedLink ? "Copied" : "Copy"}</span>
-              </button>
-            </div>
-
-            {shareModalItem.is_password_protected && (
-              <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-xs text-amber-800 flex items-center gap-2">
-                <Lock className="h-4 w-4 shrink-0 text-amber-600" />
-                <span>Recipients will be prompted to enter the password before downloading.</span>
+            {/* Scrollable Modal Content */}
+            <div className="overflow-y-auto flex-1 pr-1 py-3 space-y-4">
+              {/* Asset Snapshot Card */}
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  {getFileIcon(shareModalItem)}
+                  <div className="min-w-0">
+                    <p className="font-semibold text-slate-800 text-xs truncate max-w-xs">{shareModalItem.name}</p>
+                    <p className="text-[11px] text-slate-400 font-mono">
+                      {shareModalItem.is_folder ? "Folder" : formatBytes(shareModalItem.file_size)}
+                    </p>
+                  </div>
+                </div>
+                <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 shrink-0">
+                  AES-256-GCM Zero Plaintext
+                </span>
               </div>
-            )}
+
+              {/* Share URL Generated Alert */}
+              {shareConfig.createdShareUrl && (
+                <div className="p-4 bg-sky-50 rounded-xl border border-sky-200 space-y-2 animate-in fade-in">
+                  <div className="flex items-center justify-between text-xs font-semibold text-sky-900">
+                    <span className="flex items-center gap-1.5">
+                      <CheckCircle2 className="h-4 w-4 text-sky-600" />
+                      Active Secure Link Ready
+                    </span>
+                    <a
+                      href={shareConfig.createdShareUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sky-600 hover:text-sky-800 flex items-center gap-1 text-[11px] font-bold"
+                    >
+                      <span>Open Guest Portal</span>
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </div>
+
+                  <div className="flex items-center gap-2 p-2 bg-white rounded-lg border border-sky-200">
+                    <input
+                      type="text"
+                      readOnly
+                      value={shareConfig.createdShareUrl}
+                      className="bg-transparent text-xs text-slate-700 w-full focus:outline-none font-mono select-all"
+                    />
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(shareConfig.createdShareUrl);
+                        setCopiedLink(true);
+                        setTimeout(() => setCopiedLink(false), 2000);
+                      }}
+                      className="px-3 py-1.5 bg-sky-600 hover:bg-sky-700 text-white rounded-md text-xs font-semibold flex items-center gap-1 transition cursor-pointer shrink-0"
+                    >
+                      {copiedLink ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                      <span>{copiedLink ? "Copied!" : "Copy"}</span>
+                    </button>
+                  </div>
+
+                  {shareConfig.hasGuestPassword && shareConfig.guestPassword && (
+                    <div className="text-[11px] text-sky-800 bg-sky-100/60 p-2 rounded-lg flex items-center justify-between">
+                      <span>Guest Access Passcode: <strong className="font-mono">{shareConfig.guestPassword}</strong></span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard.writeText(shareConfig.guestPassword);
+                          showToast("Guest passcode copied to clipboard!", "success");
+                        }}
+                        className="text-sky-700 hover:text-sky-900 underline text-[10px] cursor-pointer"
+                      >
+                        Copy Passcode
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Configuration Form */}
+              <div className="space-y-4 pt-1">
+                {/* 1. Permissions Selector */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                    1. Access Permission
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShareConfig((prev) => ({ ...prev, permission: "download" }))}
+                      className={`p-2.5 rounded-xl border text-left transition cursor-pointer ${
+                        shareConfig.permission === "download"
+                          ? "border-blue-600 bg-blue-50/50 ring-1 ring-blue-600"
+                          : "border-slate-200 hover:border-slate-300 bg-white"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 font-bold text-xs text-slate-800">
+                        <Download className="h-3.5 w-3.5 text-blue-600" />
+                        <span>Download & View</span>
+                      </div>
+                      <p className="text-[10px] text-slate-500 mt-0.5">Guest can preview and download decrypted file.</p>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setShareConfig((prev) => ({ ...prev, permission: "view" }))}
+                      className={`p-2.5 rounded-xl border text-left transition cursor-pointer ${
+                        shareConfig.permission === "view"
+                          ? "border-blue-600 bg-blue-50/50 ring-1 ring-blue-600"
+                          : "border-slate-200 hover:border-slate-300 bg-white"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 font-bold text-xs text-slate-800">
+                        <Eye className="h-3.5 w-3.5 text-amber-600" />
+                        <span>View-Only (Restricted)</span>
+                      </div>
+                      <p className="text-[10px] text-slate-500 mt-0.5">Guest can only view in browser; downloads blocked.</p>
+                    </button>
+                  </div>
+                </div>
+
+                {/* 2. GUEST PASSWORD PROTECTION (CORE FEATURE) */}
+                <div className="p-3.5 rounded-xl border border-slate-200 bg-slate-50/60 space-y-2.5">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id="enableGuestPassword"
+                        checked={shareConfig.hasGuestPassword}
+                        onChange={(e) =>
+                          setShareConfig((prev) => ({ ...prev, hasGuestPassword: e.target.checked }))
+                        }
+                        className="h-4 w-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300 cursor-pointer"
+                      />
+                      <label htmlFor="enableGuestPassword" className="text-xs font-bold text-slate-800 cursor-pointer flex items-center gap-1.5">
+                        <Lock className="h-3.5 w-3.5 text-amber-600" />
+                        <span>Enforce Guest Access Password</span>
+                      </label>
+                    </div>
+
+                    {shareConfig.hasGuestPassword && (
+                      <button
+                        type="button"
+                        onClick={generateRandomGuestPassword}
+                        className="text-[11px] font-semibold text-blue-600 hover:text-blue-700 hover:underline cursor-pointer flex items-center gap-1.5"
+                      >
+                        <KeyRound className="h-3 w-3" />
+                        <span>Generate Code</span>
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="text-[11px] text-slate-500 leading-relaxed bg-white p-2.5 rounded-lg border border-slate-200">
+                    <strong className="text-slate-700 block mb-0.5">Original Password Isolation Protection:</strong>
+                    Guests can only access this document if they have this guest password. Your master vault password is completely isolated and cannot be used by guests, keeping your account and other files 100% private.
+                  </div>
+
+                  {shareConfig.hasGuestPassword && (
+                    <div className="relative">
+                      <input
+                        type={showShareGuestPassword ? "text" : "password"}
+                        value={shareConfig.guestPassword}
+                        onChange={(e) =>
+                          setShareConfig((prev) => ({ ...prev, guestPassword: e.target.value }))
+                        }
+                        placeholder="Enter or generate guest passcode..."
+                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-mono text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowShareGuestPassword(!showShareGuestPassword)}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-medium cursor-pointer"
+                      >
+                        {showShareGuestPassword ? "Hide" : "Show"}
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* 3. Link Expiration & Quotas */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                      <Clock className="h-3.5 w-3.5 text-slate-500" />
+                      <span>Link Expiration</span>
+                    </label>
+                    <select
+                      value={shareConfig.expirationPreset}
+                      onChange={(e) =>
+                        setShareConfig((prev) => ({ ...prev, expirationPreset: e.target.value }))
+                      }
+                      className="w-full px-2.5 py-2 bg-white border border-slate-200 rounded-lg text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                    >
+                      <option value="1h">1 Hour (High Security)</option>
+                      <option value="24h">24 Hours (Recommended)</option>
+                      <option value="7d">7 Days</option>
+                      <option value="30d">30 Days</option>
+                      <option value="custom">Custom Date & Time</option>
+                      <option value="never">Never (Indefinite)</option>
+                    </select>
+
+                    {shareConfig.expirationPreset === "custom" && (
+                      <input
+                        type="datetime-local"
+                        value={shareConfig.customExpiresAt}
+                        onChange={(e) =>
+                          setShareConfig((prev) => ({ ...prev, customExpiresAt: e.target.value }))
+                        }
+                        className="w-full mt-2 px-2 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                      <Download className="h-3.5 w-3.5 text-slate-500" />
+                      <span>Max Downloads Quota</span>
+                    </label>
+                    <select
+                      value={shareConfig.maxDownloads}
+                      onChange={(e) =>
+                        setShareConfig((prev) => ({ ...prev, maxDownloads: e.target.value }))
+                      }
+                      className="w-full px-2.5 py-2 bg-white border border-slate-200 rounded-lg text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                    >
+                      <option value="">Unlimited Downloads</option>
+                      <option value="1">1 Download (Burn After Read)</option>
+                      <option value="5">5 Downloads Limit</option>
+                      <option value="10">10 Downloads Limit</option>
+                    </select>
+                  </div>
+                </div>
+
+                {shareConfig.error && (
+                  <div className="p-2.5 bg-rose-50 border border-rose-200 rounded-lg text-xs text-rose-700 flex items-center gap-1.5">
+                    <AlertTriangle className="h-4 w-4 text-rose-500 shrink-0" />
+                    <span>{shareConfig.error}</span>
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  onClick={handleCreateShareLink}
+                  disabled={shareConfig.creatingShare}
+                  className="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-blue-500/20 disabled:opacity-50"
+                >
+                  {shareConfig.creatingShare ? (
+                    <>
+                      <div className="animate-spin h-3.5 w-3.5 border-2 border-white border-t-transparent rounded-full"></div>
+                      <span>Encrypting & Generating Link...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Share2 className="h-4 w-4" />
+                      <span>Generate Secure Share Link</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* Active Shares List for this item */}
+              {shareConfig.existingShares.length > 0 && (
+                <div className="pt-3 border-t border-slate-200 space-y-2">
+                  <div className="flex items-center justify-between text-xs font-bold text-slate-700">
+                    <span>Active Share Links ({shareConfig.existingShares.length})</span>
+                    <span className="text-[10px] text-slate-400 font-normal">Manage & Revoke Grants</span>
+                  </div>
+
+                  <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                    {shareConfig.existingShares.map((s) => (
+                      <div
+                        key={s.id}
+                        className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between text-xs"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 font-mono text-[11px] text-slate-800">
+                            <span className="truncate max-w-[180px]">{s.share_url}</span>
+                            {/* Explicit Link Status Badge (Milestone 2 Task 6) */}
+                            {!s.is_active ? (
+                              <span className="px-1.5 py-0.5 rounded bg-slate-200 text-slate-700 text-[9px] font-bold">
+                                Revoked
+                              </span>
+                            ) : s.is_expired ? (
+                              <span className="px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 text-[9px] font-bold">
+                                Expired
+                              </span>
+                            ) : s.is_exhausted ? (
+                              <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 text-[9px] font-bold">
+                                Exhausted
+                              </span>
+                            ) : (
+                              <span className="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[9px] font-bold">
+                                Active
+                              </span>
+                            )}
+                            {s.has_guest_password && (
+                              <span className="px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 text-[9px] font-bold">
+                                Guest Passcode
+                              </span>
+                            )}
+                            <span className="px-1.5 py-0.2 rounded bg-slate-200 text-slate-700 text-[9px] capitalize">
+                              {s.permission}
+                            </span>
+                          </div>
+                          <div className="text-[10px] text-slate-400 mt-0.5 flex items-center gap-2">
+                            <span>Downloads: {s.downloads_count}{s.max_downloads ? `/${s.max_downloads}` : ""}</span>
+                            <span>•</span>
+                            <span>{s.expires_at ? `Expires ${new Date(s.expires_at).toLocaleDateString()}` : "No expiry"}</span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1 shrink-0 ml-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const full = `${window.location.origin}${s.share_url}`;
+                              navigator.clipboard.writeText(full);
+                              showToast("Share link copied to clipboard!", "success");
+                            }}
+                            className="p-1 hover:bg-slate-200 rounded text-slate-500 hover:text-slate-800 transition cursor-pointer"
+                            title="Copy Link"
+                          >
+                            <Copy className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleRevokeShare(s.id)}
+                            className="px-2 py-1 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded text-[10px] font-bold transition cursor-pointer"
+                          >
+                            Revoke
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -2852,7 +4558,10 @@ export default function DashboardPage() {
                 </div>
               </div>
               <button
-                onClick={() => setShowNotificationsModal(false)}
+                onClick={() => {
+                  setShowNotificationsModal(false);
+                  markBadgeSeen("alerts");
+                }}
                 className="text-slate-400 hover:text-slate-600 p-1 rounded-lg cursor-pointer"
               >
                 <X className="h-5 w-5" />
@@ -2906,27 +4615,43 @@ export default function DashboardPage() {
                 type="button"
                 onClick={() => {
                   setShowNotificationsModal(false);
+                  markBadgeSeen("alerts");
                   if (user?.role === "admin") {
-                    setActiveTab("admin-analytics");
-                    setAdminSubTab("logs");
-                    setLogFilterAction("LOGIN_FAILED");
+                    setActiveTab("admin-security-dashboard");
                   } else {
                     setActiveTab("user-activity");
                   }
                 }}
-                className="text-xs font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1 cursor-pointer"
+                className="text-xs font-semibold text-purple-600 hover:text-purple-800 flex items-center gap-1 cursor-pointer"
               >
-                <span>Inspect in {user?.role === "admin" ? "Audit Logs" : "Activity Log"}</span>
+                <span>Inspect in {user?.role === "admin" ? "Security Dashboard" : "Activity Log"}</span>
                 <ChevronRight className="h-3.5 w-3.5" />
               </button>
 
-              <button
-                type="button"
-                onClick={() => setShowNotificationsModal(false)}
-                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition cursor-pointer"
-              >
-                Close
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    markBadgeSeen("alerts");
+                    setSecurityAlerts({ count: 0, list: [] });
+                    setShowNotificationsModal(false);
+                    showToast("Security notifications cleared and marked as seen.", "success");
+                  }}
+                  className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition cursor-pointer"
+                >
+                  Clear & Mark Seen
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowNotificationsModal(false);
+                    markBadgeSeen("alerts");
+                  }}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl transition cursor-pointer shadow-sm"
+                >
+                  Close
+                </button>
+              </div>
             </div>
           </div>
         </div>

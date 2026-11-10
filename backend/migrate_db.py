@@ -1,7 +1,7 @@
 import os
 from sqlalchemy import text
 from app.database import engine, Base, SessionLocal
-from app.models import User, UserRole
+from app.models import User, UserRole, FileRecord, ShareLink
 from app.security import hash_password
 
 def migrate_and_seed():

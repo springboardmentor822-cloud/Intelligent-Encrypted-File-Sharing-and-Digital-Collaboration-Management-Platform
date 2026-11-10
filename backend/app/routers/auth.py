@@ -11,7 +11,7 @@ from sqlalchemy import or_
 
 from app.database import get_db, redis_client
 from app.models import User, UserRole
-from app.schemas import UserCreate, UserResponse, UserLogin, TokenResponse
+from app.schemas import UserCreate, UserResponse, UserLogin, TokenResponse, UserProfileUpdate
 from app.security import (
     hash_password,
     verify_password,
@@ -189,12 +189,110 @@ async def login(request: Request, credentials: UserLogin, db: Session = Depends(
 
 
 # ==============================================================================
-# 3. GET CURRENT USER PROFILE
+# 3. GET & UPDATE CURRENT USER PROFILE
 # ==============================================================================
 @router.get("/me", response_model=UserResponse)
 def get_my_profile(current_user: User = Depends(get_current_user)):
     """Returns profile and RBAC role of the authenticated token bearer"""
     return current_user
+
+
+@router.put("/profile", response_model=UserResponse)
+@router.put("/me", response_model=UserResponse)
+async def update_my_profile(
+    request: Request,
+    profile_data: UserProfileUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Updates the authenticated user's profile:
+    - full_name
+    - email (validates uniqueness across users)
+    - username (validates uniqueness and updates MongoDB metadata owner_username)
+    - password (requires current_password verification)
+    """
+    client_ip = request.client.host if request.client else "127.0.0.1"
+
+    # 1. Update Full Name
+    if profile_data.full_name is not None:
+        current_user.full_name = profile_data.full_name.strip()
+
+    # 2. Update Email
+    if profile_data.email is not None and profile_data.email.strip().lower() != current_user.email.lower():
+        new_email = profile_data.email.strip().lower()
+        if new_email == "admin@trustshare.io" and current_user.role != UserRole.ADMIN:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Cannot use system administrator email address."
+            )
+        existing = db.query(User).filter(User.email == new_email, User.id != current_user.id).first()
+        if existing:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="An account with this email already exists."
+            )
+        current_user.email = new_email
+
+    # 3. Update Username
+    if profile_data.username is not None and profile_data.username.strip().lower() != current_user.username.lower():
+        new_username = profile_data.username.strip()
+        if len(new_username) < 3:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Username must be at least 3 characters long."
+            )
+        if new_username.lower() == "admin" and current_user.role != UserRole.ADMIN:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Username 'admin' is reserved for system administrators."
+            )
+        existing = db.query(User).filter(User.username.ilike(new_username), User.id != current_user.id).first()
+        if existing:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="This username is already taken."
+            )
+        current_user.username = new_username
+
+        # Synchronize MongoDB file ownership records
+        try:
+            from app.database import mongo_db
+            await mongo_db.file_metadata.update_many(
+                {"owner_id": current_user.id},
+                {"$set": {"owner_username": new_username}}
+            )
+        except Exception as e:
+            print("MongoDB owner_username sync warning:", e)
+
+    # 4. Update Password (if requested)
+    if profile_data.new_password:
+        if len(profile_data.new_password) < 6:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="New password must be at least 6 characters long."
+            )
+        if current_user.hashed_password:
+            if not profile_data.current_password or not verify_password(profile_data.current_password, current_user.hashed_password):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Current password is required and must be correct to set a new password."
+                )
+        current_user.hashed_password = hash_password(profile_data.new_password)
+
+    db.commit()
+    db.refresh(current_user)
+
+    await log_activity(
+        user_id=current_user.id,
+        username=current_user.username,
+        action="USER_PROFILE_UPDATED",
+        ip_address=client_ip,
+        details={"updated_fields": [k for k, v in profile_data.dict().items() if v is not None and k not in ["current_password", "new_password"]]}
+    )
+
+    return current_user
+
 
 
 # ==============================================================================

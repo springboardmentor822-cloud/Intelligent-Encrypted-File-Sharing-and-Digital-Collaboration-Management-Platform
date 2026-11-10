@@ -330,14 +330,11 @@ export default function App() {
                 </div>
 
                 <div className="relative z-10 grid grid-cols-3 gap-2.5 pt-2">
-                  {(platformStats?.recent_files && platformStats.recent_files.length > 0
-                    ? platformStats.recent_files.slice(0, 3)
-                    : [
-                        { name: "MILESTONE-1.pdf", size_human: "98.3 KB", category: "document" },
-                        { name: "Q3_Audit.pdf", size_human: "73 B", category: "document" },
-                        { name: "Security_Vault.enc", size_human: "2.4 MB", category: "code" },
-                      ]
-                  ).map((file, fIdx) => (
+                  {[
+                    { id: "hero-1", name: "Security_Audit.enc", size_human: "2.4 MB", category: "document" },
+                    { id: "hero-2", name: "Zero_Knowledge.pdf", size_human: "1.1 MB", category: "document" },
+                    { id: "hero-3", name: "Vault_Spec.enc", size_human: "540 KB", category: "code" },
+                  ].map((file, fIdx) => (
                     <div
                       key={file.id || fIdx}
                       className="bg-white/10 backdrop-blur-md rounded-xl p-2.5 border border-white/10 flex flex-col items-center text-center hover:bg-white/15 transition cursor-default"

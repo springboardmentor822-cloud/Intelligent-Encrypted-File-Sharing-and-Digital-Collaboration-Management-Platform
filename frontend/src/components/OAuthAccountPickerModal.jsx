@@ -339,7 +339,7 @@ export default function OAuthAccountPickerModal({
 
             {/* Privacy & Terms Disclaimer */}
             <p className="text-[11px] text-slate-400 mt-6 leading-relaxed">
-              Before using this app, you can review TrustShare's{" "}
+              Before using this app, you can review TrustShare&apos;s{" "}
               <a href="#" className="text-blue-600 hover:underline">
                 Privacy Policy
               </a>{" "}

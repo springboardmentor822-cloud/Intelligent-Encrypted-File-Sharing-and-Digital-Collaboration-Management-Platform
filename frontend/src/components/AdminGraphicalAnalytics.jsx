@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useId } from "react";
+import React, { useState, useId, useEffect, useRef } from "react";
 import {
   TrendingUp,
   PieChart as PieChartIcon,
@@ -15,19 +15,57 @@ import {
   Lock,
   ArrowUpRight,
   Info,
-  Trash2
+  Trash2,
+  ChevronDown,
+  Check,
+  X
 } from "lucide-react";
 
 export default function AdminGraphicalAnalytics({
   adminAnalytics,
   formatBytes,
   onCleanAdminStorage,
-  isCleaningStorage = false
+  isCleaningStorage = false,
+  onRangeChange
 }) {
   const chartId = useId();
   const [activeMetric, setActiveMetric] = useState("total_events"); // 'total_events' | 'file_events' | 'success_logins' | 'failed_logins'
   const [hoveredDay, setHoveredDay] = useState(null);
   const [hoveredCategory, setHoveredCategory] = useState(null);
+
+  const [activeDays, setActiveDays] = useState(adminAnalytics?.days || 7);
+  const [customStartDate, setCustomStartDate] = useState("");
+  const [customEndDate, setCustomEndDate] = useState("");
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+  const datePickerRef = useRef(null);
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (datePickerRef.current && !datePickerRef.current.contains(event.target)) {
+        setIsDatePickerOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const handlePresetSelect = (presetDays) => {
+    setActiveDays(presetDays);
+    setCustomStartDate("");
+    setCustomEndDate("");
+    setIsDatePickerOpen(false);
+    if (onRangeChange) {
+      onRangeChange({ days: presetDays, startDate: "", endDate: "" });
+    }
+  };
+
+  const handleApplyCustomRange = () => {
+    if (!customStartDate || !customEndDate) return;
+    setIsDatePickerOpen(false);
+    if (onRangeChange) {
+      onRangeChange({ startDate: customStartDate, endDate: customEndDate });
+    }
+  };
 
   if (!adminAnalytics) return null;
 
@@ -179,7 +217,7 @@ export default function AdminGraphicalAnalytics({
   return (
     <div className="space-y-6">
       {/* ========================================================= */}
-      {/* TOP SECTION: 7-DAY INTERACTIVE ACTIVITY & SECURITY TREND */}
+      {/* TOP SECTION: INTERACTIVE ACTIVITY & SECURITY TREND */}
       {/* ========================================================= */}
       <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
@@ -193,58 +231,147 @@ export default function AdminGraphicalAnalytics({
                   Platform Telemetry & Activity Curve
                 </h3>
                 <p className="text-xs text-slate-500">
-                  Continuous 7-day chronological stream of document operations & authentication traffic
+                  Chronological telemetry stream of document operations & authentication traffic
                 </p>
               </div>
             </div>
           </div>
 
-          {/* Metric Selector Pills */}
-          <div className="flex flex-wrap items-center gap-1.5 p-1 bg-slate-100/80 rounded-xl self-start sm:self-auto">
-            <button
-              type="button"
-              onClick={() => setActiveMetric("total_events")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
-                activeMetric === "total_events"
-                  ? "bg-white text-indigo-700 shadow-2xs"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              All Events
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveMetric("file_events")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
-                activeMetric === "file_events"
-                  ? "bg-white text-emerald-700 shadow-2xs"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              Files
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveMetric("success_logins")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
-                activeMetric === "success_logins"
-                  ? "bg-white text-blue-700 shadow-2xs"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              Logins
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveMetric("failed_logins")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
-                activeMetric === "failed_logins"
-                  ? "bg-white text-rose-700 shadow-2xs"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              Alerts ({failedLogins})
-            </button>
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Metric Selector Pills */}
+            <div className="flex flex-wrap items-center gap-1.5 p-1 bg-slate-100/80 rounded-xl self-start sm:self-auto">
+              <button
+                type="button"
+                onClick={() => setActiveMetric("total_events")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
+                  activeMetric === "total_events"
+                    ? "bg-white text-indigo-700 shadow-2xs"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                All Events
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveMetric("file_events")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
+                  activeMetric === "file_events"
+                    ? "bg-white text-emerald-700 shadow-2xs"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                Files
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveMetric("success_logins")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
+                  activeMetric === "success_logins"
+                    ? "bg-white text-blue-700 shadow-2xs"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                Logins
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveMetric("failed_logins")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
+                  activeMetric === "failed_logins"
+                    ? "bg-white text-rose-700 shadow-2xs"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                Alerts ({failedLogins})
+              </button>
+            </div>
+
+            {/* Date Range Selector Popover */}
+            <div className="relative" ref={datePickerRef}>
+              <button
+                type="button"
+                onClick={() => setIsDatePickerOpen(!isDatePickerOpen)}
+                className="inline-flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 transition cursor-pointer"
+              >
+                <Calendar className="h-3.5 w-3.5 text-indigo-600" />
+                <span>{adminAnalytics.date_range || `${activeDays} Days`}</span>
+                <ChevronDown className="h-3 w-3 text-slate-400" />
+              </button>
+
+              {isDatePickerOpen && (
+                <div className="absolute right-0 top-full mt-2 w-76 bg-white rounded-2xl shadow-xl border border-slate-200 z-50 p-4 animate-in fade-in zoom-in-95 duration-150">
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                    <span className="text-xs font-bold text-slate-900 uppercase tracking-wider">Select Range</span>
+                    <button
+                      type="button"
+                      onClick={() => setIsDatePickerOpen(false)}
+                      className="text-slate-400 hover:text-slate-600 p-1 rounded-lg"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-1.5 py-3">
+                    {[
+                      { label: "Last 7 Days", days: 7 },
+                      { label: "Last 14 Days", days: 14 },
+                      { label: "Last 30 Days", days: 30 },
+                      { label: "Last 60 Days", days: 60 },
+                      { label: "Last 90 Days", days: 90 },
+                      { label: "Past Year", days: 365 },
+                    ].map((preset) => (
+                      <button
+                        key={preset.days}
+                        type="button"
+                        onClick={() => handlePresetSelect(preset.days)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-semibold text-left transition flex items-center justify-between cursor-pointer ${
+                          activeDays === preset.days && !customStartDate
+                            ? "bg-indigo-50 text-indigo-700 border border-indigo-200 font-bold"
+                            : "text-slate-600 hover:bg-slate-50 border border-transparent"
+                        }`}
+                      >
+                        <span>{preset.label}</span>
+                        {activeDays === preset.days && !customStartDate && (
+                          <Check className="h-3 w-3 text-indigo-600" />
+                        )}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="pt-3 border-t border-slate-100 space-y-2">
+                    <span className="text-[11px] font-bold text-slate-800 block">Custom Range</span>
+                    <div className="space-y-1.5">
+                      <div>
+                        <label className="text-[10px] text-slate-500 font-medium block mb-0.5">Start Date</label>
+                        <input
+                          type="date"
+                          value={customStartDate}
+                          onChange={(e) => setCustomStartDate(e.target.value)}
+                          className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 focus:bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 font-mono"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-slate-500 font-medium block mb-0.5">End Date</label>
+                        <input
+                          type="date"
+                          value={customEndDate}
+                          onChange={(e) => setCustomEndDate(e.target.value)}
+                          className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 focus:bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 font-mono"
+                        />
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={!customStartDate || !customEndDate}
+                      onClick={handleApplyCustomRange}
+                      className="w-full py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-xs font-semibold rounded-xl transition shadow-xs cursor-pointer"
+                    >
+                      Apply Range
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 

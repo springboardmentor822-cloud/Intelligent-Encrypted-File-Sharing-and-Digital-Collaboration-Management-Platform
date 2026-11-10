@@ -14,7 +14,7 @@ class UserCreate(BaseModel):
 # User Public Response
 class UserResponse(BaseModel):
     id: int
-    email: EmailStr
+    email: str
     username: str
     full_name: Optional[str] = None
     role: UserRole
@@ -37,3 +37,11 @@ class TokenResponse(BaseModel):
     access_token: str
     token_type: str
     user: UserResponse
+
+# User Profile Update Schema
+class UserProfileUpdate(BaseModel):
+    full_name: Optional[str] = None
+    email: Optional[str] = None
+    username: Optional[str] = None
+    current_password: Optional[str] = None
+    new_password: Optional[str] = None

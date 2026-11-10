@@ -2,7 +2,7 @@ from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from app.database import engine, Base, mongo_client, mongo_db, redis_client, get_db
-from app.routers import auth, files, admin
+from app.routers import auth, files, admin, shares
 from app.models import User
 import app.models
 
@@ -27,6 +27,7 @@ app.add_middleware(
 # Mount application routers
 app.include_router(auth.router)
 app.include_router(files.router)
+app.include_router(shares.router)
 app.include_router(admin.router)
 
 @app.get("/")
@@ -76,10 +77,11 @@ async def platform_stats(db: Session = Depends(get_db)):
     total_users = db.query(User).count()
     active_users = db.query(User).filter(User.is_active == True).count()
 
-    # 2. Total real files and storage from MongoDB
+    # 2. Total real files, shared documents, and storage from MongoDB
     files_count = await mongo_db.file_metadata.count_documents({"is_folder": False, "is_trashed": False})
     folders_count = await mongo_db.file_metadata.count_documents({"is_folder": True, "is_trashed": False})
     protected_files = await mongo_db.file_metadata.count_documents({"is_password_protected": True, "is_trashed": False})
+    shared_documents = await mongo_db.file_shares.count_documents({"is_active": True})
 
     storage_agg = await mongo_db.file_metadata.aggregate([
         {"$match": {"is_folder": False, "is_trashed": False}},
@@ -103,33 +105,12 @@ async def platform_stats(db: Session = Depends(get_db)):
     else:
         total_storage_human = f"{total_storage_bytes} B"
 
-    # Fetch up to 4 real recent files for live Hero preview
-    recent_docs = await mongo_db.file_metadata.find(
-        {"is_folder": False, "is_trashed": False}
-    ).sort("created_at", -1).limit(4).to_list(length=4)
-
-    recent_files = []
-    for doc in recent_docs:
-        size_b = doc.get("file_size", 0)
-        if size_b >= 1024 * 1024:
-            size_h = f"{(size_b / (1024 * 1024)):.1f} MB"
-        elif size_b >= 1024:
-            size_h = f"{(size_b / 1024):.1f} KB"
-        else:
-            size_h = f"{size_b} B"
-
-        created_val = doc.get("created_at")
-        created_str = created_val.isoformat() if hasattr(created_val, "isoformat") else str(created_val or "")
-
-        recent_files.append({
-            "id": str(doc.get("_id", "")),
-            "name": doc.get("name", "Document"),
-            "size_human": size_h,
-            "file_size": size_b,
-            "category": doc.get("category", "document"),
-            "created_at": created_str,
-            "is_encrypted": True
-        })
+    # Privacy-preserving showcase cards for public hero preview (zero personal data exposure)
+    recent_files = [
+        {"id": "demo-1", "name": "Security_Audit_Report.enc", "size_human": "2.4 MB", "category": "document", "is_encrypted": True},
+        {"id": "demo-2", "name": "Zero_Knowledge_Spec.pdf", "size_human": "1.1 MB", "category": "document", "is_encrypted": True},
+        {"id": "demo-3", "name": "Vault_Compliance_Cert.enc", "size_human": "540 KB", "category": "code", "is_encrypted": True},
+    ]
 
     # Infrastructure Health
     infra_health = {"postgres": "connected", "mongodb": "connected", "redis": "connected"}
@@ -164,6 +145,7 @@ async def platform_stats(db: Session = Depends(get_db)):
             "total_bytes": total_storage_bytes,
             "total_storage_human": total_storage_human,
             "protected_files": protected_files,
+            "shared_documents": shared_documents,
             "categories": categories
         },
         "security": {
