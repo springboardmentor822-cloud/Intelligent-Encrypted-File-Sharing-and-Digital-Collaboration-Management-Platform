@@ -1,0 +1,65 @@
+warning: in the working copy of 'README.md', LF will be replaced by CRLF the next time Git touches it
+[1mdiff --git a/README.md b/README.md[m
+[1mindex e976c41..0b85796 100644[m
+[1m--- a/README.md[m
+[1m+++ b/README.md[m
+[36m@@ -1,2 +1,78 @@[m
+[31m-# Intelligent-Encrypted-File-Sharing-and-Digital-Collaboration-Management-Platform[m
+[31m-Intelligent Encrypted File Sharing and Digital Collaboration Management Platform[m
+[32m+[m[32m# TrustShare[m
+[32m+[m
+[32m+[m[32mSecure file sharing: FastAPI + SQLAlchemy backend, React/TypeScript/Tailwind frontend.[m
+[32m+[m[32mFiles are encrypted server-side (AES-256-GCM, per-file data key wrapped by a versioned master key) **before** reaching storage.[m
+[32m+[m
+[32m+[m[32m## Quick start (Windows PowerShell; macOS/Linux equivalents in comments)[m
+[32m+[m[32mRequires Python 3.11+ and Node 18+.[m
+[32m+[m
+[32m+[m[32m```powershell[m
+[32m+[m[32mcd backend[m
+[32m+[m[32mpython -m venv .venv[m
+[32m+[m[32m.\.venv\Scripts\Activate.ps1          # Linux/macOS: source .venv/bin/activate[m
+[32m+[m[32mpip install -r requirements.txt[m
+[32m+[m[32mcopy .env.example .env                 # cp .env.example .env[m
+[32m+[m[32m$env:TS_ADMIN_PASSWORD = "ChangeMe123"   # Linux/macOS: export TS_ADMIN_PASSWORD=...[m
+[32m+[m[32mpython -m app.cli create-admin admin@example.com "Site Admin"[m
+[32m+[m[32muvicorn app.main:app --reload --port 8000[m
+[32m+[m[32m```[m
+[32m+[m[32m```powershell[m
+[32m+[m[32mcd frontend[m
+[32m+[m[32mnpm install[m
+[32m+[m[32mnpm run dev                            # http://localhost:5174 (proxies /api to :8000)[m
+[32m+[m[32m```[m
+[32m+[m[32m- App: http://localhost:5174  ·  API docs (Swagger): http://localhost:8000/api/docs[m
+[32m+[m[32m- Development uses SQLite and auto-generates a dev master key and JWT secret under `backend/data/` (mode 0600). **These are for development only.**[m
+[32m+[m[32m- Admins can only be created with the CLI above. Public registration always creates standard users and rejects a `role` field.[m
+[32m+[m[32m- Any account can still open the admin panel through **Admin Visit** (password `123meadmin` by default) — see below.[m
+[32m+[m
+[32m+[m[32m## What's new in this build[m
+[32m+[m[32m- **Admin Visit (password-gated admin entry for any account)** — every signed-in user gets an **Admin Visit** item in their sidebar. Opening it shows a restricted-area password gate; only people who know the admin-visit password can proceed. On success the server issues a **60-minute scoped grant** (`X-Admin-Visit`) bound to that user id, which the UI stores in `sessionStorage` only. The grant is *not* a role change and is **rejected as an access token** (`typ="scope"`), so it cannot be replayed by another account or used on normal API routes. Admins by role skip the gate. The admin shell shows an amber "Admin visit" pill with an **Exit** button that revokes the session client-side and audits `admin_visit.locked`.[m
+[32m+[m[32m  - Default password: **`123meadmin`** — override with `TS_ADMIN_VISIT_PASSWORD`. Session length: `TS_ADMIN_VISIT_MINUTES` (default 60). Attempts are rate-limited (5/min per IP), audited, and a wrong password raises a **critical** security alert.[m
+[32m+[m[32m- **Encryption & Key Registry in the Security Dashboard** — a live, per-document view of the envelope-encryption state: algorithm (`AES-256-GCM`), 256-bit data keys, 96-bit nonces, KEK version per file, a **non-reversible DEK fingerprint** (`dek_<sha256 prefix>`), wrapped-DEK size, key status (`ok` / `stale_kek` / `kek_unavailable` / `metadata_missing`), and last access. Summary cards show total files, unique data keys, active KEK version, stale/missing counts, integrity failures, and rotations, plus a KEK-version distribution chart. Each row has a **Verify** action that decrypts the file end-to-end and raises a **critical** alert on any integrity failure. No key material is ever exposed — only fingerprints and versions.[m
+[32m+[m[32m- **Live threat LED + abnormal-activity triggers** — the Security Dashboard header carries a pulsing red LED with an open-alert count. A 10-second poll of `/api/admin/security/live` detects new alerts and fires a red **LED glow / flash animation** on the alert feed, with a threat ring on critical items. Triggers include: failed login, unknown-email login, brute-force bursts, **successful sign-in from a new IP**, wrong share passcode, failed vault unlock, **abnormal download volume**, **decryption/integrity failure**, and **failed Admin Visit password**. All honour `prefers-reduced-motion`.[m
+[32m+[m[32m- **Redesigned UI/UX** — deep blue → lavender gradient system, gradient photography on the landing/auth/share pages, glass panels, and a consistent component library. Every chart and graph uses a **dark-red** palette.[m
+[32m+[m[32m- **Passcode-protected shares** — when creating a link or direct share you can set an optional 4–64 character passcode (stored as an Argon2id hash, never in clear text). Recipients must exchange it for a short-lived scoped grant (`X-Share-Passcode-Token`, 15 min) before the file can be viewed or downloaded. Wrong passcodes are rate-limited, audited, and raise a security alert.[m
+[32m+[m[32m- **Secure Folder (per user)** — a vault inside the account, like a phone's secure folder. The user creates a vault password, then unlocks it to upload, preview, download, or move files in/out. Vault files are flagged `is_secure`, are excluded from the normal file list, cannot be shared, and are unreachable through ordinary file routes (404). Unlock issues a 15-minute scoped token; the UI can lock again at any time.[m
+[32m+[m[32m- **Admin Dashboard** — platform operations: registered/active users, files uploaded, storage utilization, upload/download activity, file-sharing activity, active/expired/revoked links, failed logins, unauthorized attempts, and the audit log.[m
+[32m+[m[32m- **Security Dashboard (admin-only, separate from the Admin Dashboard)** — visually distinct "Security Operations" view with severity alert cards, alert volume graphs, open-alerts-by-severity donut, an acknowledgement workflow, per-user security posture (risk score/level, failed logins, open alerts), and a filterable security activity log. Failed logins, brute-force bursts, wrong passcodes, and failed vault unlocks raise alerts here — not on the operations dashboard.[m
+[32m+[m[32m- **Per-file encryption keys** — each file gets a random AES-256-GCM data key; only that key is wrapped by the versioned master key (KEK). The master key never encrypts file content directly. Keys live in the backend key manager, separate from stored ciphertext; rotation re-wraps data keys only. The file id is bound as AAD, so ciphertext cannot be swapped between files.[m
+[32m+[m
+[32m+[m[32m## Tests[m
+[32m+[m[32m```[m
+[32m+[m[32mcd backend && pytest -q                                  # 50 tests (admin visit gate, per-file key registry, live alerts, passcode, expiry, revocation, secure folder)[m
+[32m+[m[32mcd backend && python scripts/smoke_e2e.py http://localhost:8000   # 31 end-to-end checks against a running server[m
+[32m+[m[32mcd frontend && npm run doctor                            # every local import resolves (catches a partial ZIP extract)[m
+[32m+[m[32mcd frontend && npm run build                             # type-check + production build[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32m## Troubleshooting[m
+[32m+[m[32mSee **START_HERE.md**. The most common issue is a stale project folder: Vite reports[m
+[32m+[m[32m`Failed to resolve import "./pages/SecureFolder"` when the folder was extracted over an older copy.[m
+[32m+[m[32mDelete the folder, re-extract the ZIP into a clean path, then `npm install && npm run dev`.[m
+[32m+[m[32m`npm run doctor` names every missing file instead of showing Vite's overlay.[m
+[32m+[m
+[32m+[m[32m## Production checklist[m
+[32m+[m[32m- `TS_ENV=production` (refuses to start without `TS_JWT_SECRET` and `TS_MASTER_KEYS`).[m
+[32m+[m[32m- Put a TLS-terminating proxy in
