@@ -1,7 +1,11 @@
 # TrustShare
 
+**Deployed and running at:** https://trustshare-lime.vercel.app/
+**Admin Gate at:** https://trustshare-lime.vercel.app/admin/login
+
+
 **A secure file sharing platform**: 
-Files are encrypted from server side (AES-256-GCM, per-file data key wrapped by a versioned master key) **before** reaching storage.
+Strong File security provided as files are encrypted with AES-256-GCM per-file data key wrapped by a versioned master key **before** reaching storage.
 
 ## Quick start 
 Requires Python 3.11+.
