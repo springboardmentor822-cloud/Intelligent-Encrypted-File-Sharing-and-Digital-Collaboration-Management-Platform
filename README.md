@@ -16,7 +16,7 @@ uvicorn app.main:app --reload --port 8000
 ```powershell
 cd frontend
 npm install
-npm run dev                            # http://localhost:5174 (proxies /api to :8000)
+npm run dev                           
 ```
 - App: http://localhost:5174  ·  API docs (Swagger): http://localhost:8000/api/docs
 
