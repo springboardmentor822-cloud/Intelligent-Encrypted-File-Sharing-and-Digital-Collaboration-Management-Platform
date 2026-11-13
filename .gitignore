@@ -1,0 +1,15 @@
+.venv/
+__pycache__/
+node_modules/
+dist/
+backend/data/
+.env
+*.db
+
+# Local data and secrets
+backend/data/
+backend/.env
+.env
+node_modules/
+.venv/
+__pycache__/

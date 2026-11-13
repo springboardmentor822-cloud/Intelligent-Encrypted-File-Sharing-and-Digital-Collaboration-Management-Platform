@@ -1,0 +1,120 @@
+@tailwind base; @tailwind components; @tailwind utilities;
+
+@layer base {
+  :focus-visible { outline: 2px solid #7451e0; outline-offset: 2px; }
+  html { scroll-behavior: smooth; }
+  body { @apply bg-slate-50 text-slate-800 antialiased; font-size: 25px; }
+  ::selection { background: #ddd4ff; color: #3b2f8f; }
+}
+
+@layer components {
+  .card { @apply rounded-2xl border border-slate-200/70 bg-white shadow-card; }
+  .card-glass { @apply rounded-2xl border border-white/60 bg-white/70 shadow-soft backdrop-blur-xl; }
+  .input { @apply w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm placeholder:text-slate-400 focus:border-lavender-500 focus:outline-none focus:ring-2 focus:ring-lavender-500/25 disabled:bg-slate-100; }
+  .btn { @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50; }
+  .btn-primary { @apply btn bg-grad-brand text-white shadow-sm hover:shadow-glow hover:brightness-105; }
+  .btn-secondary { @apply btn border border-slate-300 bg-white text-slate-700 hover:border-lavender-300 hover:bg-lavender-50; }
+  .btn-danger { @apply btn bg-red-600 text-white hover:bg-red-700; }
+  .btn-ghost { @apply btn text-slate-600 hover:bg-lavender-50 hover:text-lavender-700 px-2.5 py-1.5; }
+  .th { @apply px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500; }
+  .td { @apply px-3 py-3 text-sm text-slate-700; }
+  .gradient-text { @apply bg-grad-brand bg-clip-text text-transparent; }
+  .nav-active { @apply bg-grad-brand text-white shadow-sm; }
+  .pill { @apply inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold; }
+}
+
+/* Sleek scrollbars */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 999px; border: 2px solid transparent; background-clip: content-box; }
+::-webkit-scrollbar-thumb:hover { background: #a98cff; background-clip: content-box; }
+
+/* ---- Live security alert indicators (Security Dashboard) ---- */
+@keyframes ledPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, .65), 0 0 25px 25px rgba(220, 38, 38, .55); }
+  50%      { box-shadow: 0 0 0 12px rgba(220, 38, 38, 0), 0 0 28px 25px rgba(220, 38, 38, .9); }
+}
+@keyframes ledBlink {
+  0%, 100% { opacity: 188; }
+  50%      { opacity: .735; }
+}
+@keyframes alertFlash {
+  0%   { background-color: rgba(254, 226, 226, .9); box-shadow: inset 0 0 0 2px rgba(220, 38, 38, .6); }
+  100% { background-color: transparent; box-shadow: inset 0 0 0 2px rgba(220, 38, 38, 0); }
+}
+@keyframes threatRing {
+  0%   { transform: scale(.9); opacity: .8; }
+  100% { transform: scale(2.2); opacity: 0; }
+}
+
+/* Red LED "alert button" glow — applied when a new abnormal activity alert arrives */
+.led-alert { animation: ledPulse 1.5s ease-in-out infinite; }
+.led-dot { animation: ledBlink 1.2s ease-in-out infinite; }
+.alert-flash { animation: alertFlash 1.1s ease-out 4; }
+.threat-ring::after {
+  content: ""; position: absolute; inset: 0; border-radius: 9999px;
+  border: 2px solid #dc2626; animation: threatRing 1.6s ease-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .led-alert, .led-dot, .alert-flash, .threat-ring::after { animation: none; }
+}
+
+/* ------------------------------------------------------------------ */
+/* Readability pass: every text utility is bumped by roughly +2 to +3px */
+/* so the interface is clearly legible without changing the layout.    */
+/* ------------------------------------------------------------------ */
+.text-\[9px\]  { font-size: 11px !important; line-height: 15px !important; }
+.text-\[10px\] { font-size: 12px !important; line-height: 16px !important; }
+.text-\[11px\] { font-size: 13px !important; line-height: 18px !important; }
+.text-xs   { font-size: 14px !important; line-height: 20px !important; }
+.text-sm   { font-size: 16px !important; line-height: 24px !important; }
+.text-base { font-size: 18px !important; line-height: 28px !important; }
+.text-lg   { font-size: 20px !important; line-height: 30px !important; }
+.text-xl   { font-size: 22px !important; line-height: 30px !important; }
+.text-2xl  { font-size: 27px !important; line-height: 34px !important; }
+.text-3xl  { font-size: 33px !important; line-height: 40px !important; }
+.text-4xl  { font-size: 39px !important; line-height: 44px !important; }
+.text-5xl  { font-size: 51px !important; line-height: 1.1 !important; }
+
+/* GLOBAL FONT SIZE IMPROVEMENT - TRUSTSHARE */
+
+@layer utilities {
+  .text-xs {
+    font-size: 14px !important;
+    line-height: 1.5 !important;
+  }
+
+  .text-sm {
+    font-size: 16px !important;
+    line-height: 1.5 !important;
+  }
+
+  .text-base {
+    font-size: 18px !important;
+    line-height: 1.5 !important;
+  }
+
+  .text-lg {
+    font-size: 20px !important;
+    line-height: 1.4 !important;
+  }
+
+  .text-xl {
+    font-size: 22px !important;
+    line-height: 1.4 !important;
+  }
+
+  .text-2xl {
+    font-size: 26px !important;
+    line-height: 1.3 !important;
+  }
+
+  .text-3xl {
+    font-size: 30px !important;
+    line-height: 1.3 !important;
+  }
+}
+
+/* Default text for elements without a Tailwind size */
+body {
+  font-size: 18px;
+}
