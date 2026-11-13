@@ -1,6 +1,6 @@
 # TrustShare
 
-Secure file sharing: FastAPI + SQLAlchemy backend, React, TypeScript and Tailwind frontend.
+**A secure file sharing platform**: 
 Files are encrypted server-side (AES-256-GCM, per-file data key wrapped by a versioned master key) **before** reaching storage.
 
 ## Quick start 
