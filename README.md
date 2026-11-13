@@ -1,5 +1,4 @@
 # TrustShare
-
 **Deployed and running at:** https://trustshare-lime.vercel.app/
 **Admin Gate at:** https://trustshare-lime.vercel.app/admin/login
 
