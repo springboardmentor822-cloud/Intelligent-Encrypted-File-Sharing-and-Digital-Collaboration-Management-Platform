@@ -6,26 +6,6 @@ Every file is encrypted with **AES-256-GCM** before it is stored. Owners decide 
 
 Built with **FastAPI (Python)**, **React**, **PostgreSQL**, **MongoDB** and **Redis**, and started with a single Docker command.
 
----
-
-## Table of contents
-
-1. [What TrustShare does](#1-what-trustshare-does)
-2. [Features](#2-features)
-3. [Technology](#3-technology)
-4. [Run it (copy and paste)](#4-run-it-copy-and-paste)
-5. [Become the administrator](#5-become-the-administrator)
-6. [A 5-minute tour](#6-a-5-minute-tour)
-7. [Try the security features](#7-try-the-security-features)
-8. [Settings you can change (`.env`)](#8-settings-you-can-change-env)
-9. [Daily commands](#9-daily-commands)
-10. [Troubleshooting](#10-troubleshooting)
-11. [Project structure](#11-project-structure)
-12. [API overview](#12-api-overview)
-13. [Security notes: student project vs production](#13-security-notes-student-project-vs-production)
-
----
-
 ## 1. What TrustShare does
 
 Normal sharing tools store files readable and hand out links that never expire. TrustShare works differently:
