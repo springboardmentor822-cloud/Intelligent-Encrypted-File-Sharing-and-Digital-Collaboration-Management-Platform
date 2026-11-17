@@ -1,133 +1,402 @@
-# TrustShare
+# TrustShare – Secure Encrypted File Sharing Platform
 
-**A secure, encrypted file-sharing platform with a built-in security control room.**
+TrustShare is a secure, web-based file storage and sharing platform designed to protect files while enabling safe collaboration. It uses AES-256-GCM encryption to protect uploaded files and provides authenticated access, controlled file sharing, activity tracking, and security monitoring.
 
-Every file is encrypted with **AES-256-GCM** before it is stored. Owners decide exactly who can open a file and for how long. Administrators get live monitoring: who is active, who is attacking, who gets let in, and how storage is used.
+The application provides separate User and Admin panels, allowing users to manage their files while administrators monitor platform activity, security events, access permissions, and storage usage.
 
-Built with **FastAPI (Python)**, **React**, **PostgreSQL**, **MongoDB** and **Redis**, and started with a single Docker command.
-
+<<<<<<< HEAD
 ## 1. What TrustShare does
+=======
+---
 
-Normal sharing tools store files readable and hand out links that never expire. TrustShare works differently:
+## 1. Key Features
 
-1. **Upload:** the server checks the file (type, size, disguised programs, test-virus signature).
-2. **Encrypt:** each file gets its own random 256-bit key. Only unreadable bytes are stored.
-3. **Share:** with specific people, or with links that expire, can be password-protected, limited, or revoked.
-4. **Watch:** every action is written to a read-only audit log, and rules raise alerts when something looks wrong.
-5. **Control:** the administrator decides who gets in, can block attackers, and can plant trap files.
+### User Features
+- Secure user registration and login.
+- JWT-based authentication.
+- Upload, download, preview, and manage files.
+- AES-256-GCM file encryption.
+- Create folders and organize files.
+- Share files through controlled sharing links.
+- Configure link expiry, download limits, passwords, and view-only access.
+- Manage shared files, favorites, recent files, and trash.
+- Restore deleted files during the retention period.
+- View file analytics and activity logs.
+- Monitor personal security activity.
 
-Think of it like this: every file is a box with its own padlock key. All the padlock keys sit in a safe, and the safe has one master key that only the server knows. Steal the boxes or the database and you get nothing.
+### Admin Features
+- Dedicated administrator dashboard.
+- User management and account approval.
+- File and sharing management.
+- Security dashboard and threat monitoring.
+- Audit logs and activity tracking.
+- Security alerts and notifications.
+- Storage analytics and monitoring.
+- Access control and IP blocking.
+- Security reports and CSV exports.
+- Encryption key management.
+
+### Security Features
+- AES-256-GCM file encryption.
+- JWT-based authentication.
+- Password hashing using bcrypt.
+- Role-Based Access Control (RBAC).
+- Multi-Factor Authentication (MFA) support using TOTP.
+- Audit logging and security event monitoring.
+- Controlled file-sharing links.
+- Encryption key rotation support.
 
 ---
 
-## 2. Features
+## 2. Technology Stack
+>>>>>>> 42655aa (Updated TrustShare README documentation)
 
-### Encryption and data protection
-- **AES-256-GCM envelope encryption:** a fresh key and nonce for every file; keys are wrapped by a master key and never reach the browser.
-- **Tamper detection:** a changed byte makes decryption fail, and the download is refused.
-- **Master-key rotation:** keys have versions; rotating re-wraps only the small file keys, so old files stay readable.
-- **Private storage:** only encrypted bytes are saved (local disk or AWS S3).
-- **Upload checks:** allowed types only, 25 MB limit, real content must match the extension, programs disguised as documents and the antivirus test string are blocked.
-
-### Accounts and sign-in
-- Registration and login with **bcrypt** password hashing and short-lived **JWT** tokens; logging out cancels the token.
-- **Two-factor login (TOTP)** with an authenticator app.
-- **OAuth2:** standard password flow (works with the Authorize button in the API docs) and optional **Sign in with Google**.
-- Account lock after repeated wrong passwords, plus rate limiting.
-- **Roles (RBAC):** `admin` and `user`, enforced on the server for every request. A normal user can never open admin pages, even by typing the address.
-- Optional **approval of new accounts** by an administrator.
-
-### Files
-- Upload with drag and drop, folders, search, filters by type, preview and download.
-- Supported: PDF, images, Word, Excel, PowerPoint, TXT, CSV, MP4, MOV, WEBM.
-- **Favorites**, **Recent**, **Trash** (restore within 30 days, then deleted for good).
-- **Shared with Me** and **Shared by Me** pages.
-- **Storage limit of 1 GB** for the platform and for each user.
-
-### Secure sharing
-- Share with people at **view**, **download** or **admin** level.
-- **Share links** that expire at a chosen time, can be **view-only**, **download-limited** and **password-protected**, and can be **revoked** at any time.
-- Links stop working automatically when the file is trashed or the creator loses the right to share.
-- Link tokens are random 256-bit values; only their hash is stored.
-
-### Notifications
-- Bell with unread count, full **history page**, mark as read, delete, filter by type.
-- Types: file shared, file downloaded, security alert, link expiring, announcement, access request.
-- **E-mail** for shares, downloads, link expiry reminders and security alerts (SMTP optional), with a per-user on/off switch.
-- Admins can broadcast announcements and see an **e-mail delivery log**.
-
-### User panel
-| Page | What it shows |
+| Component | Technology |
 |---|---|
-| Dashboard | animated overview, protection score, activity heatmap, live activity feed |
-| My Files / Shared with Me / Shared by Me / Recent / Favorites / Trash | file management |
-| Storage | usage of your 1 GB, by file type, largest files |
-| File Analytics | your uploads, downloads and sharing over time (date filters) |
-| Activity Logs | your own audit trail |
-| Notifications | full notification history |
-| My Security | security score, account protection (2FA, password, session), the ten protection layers, who can reach your files, your recent sign-ins |
-| Settings | profile, change password, two-factor login |
-
-### Admin panel (administrators only)
-| Page | What it does |
-|---|---|
-| **Command Center** | platform security level, live numbers, platform heatmap, service health, live security feed |
-| **Security Dashboard** | login monitoring, unauthorized and blocked attempts, security events, recent logins with location, **activity analytics**, audit log |
-| **Threat Monitor** | non-admin users in admin areas, live login-attempt feed, targeted accounts, attacking IPs, active triggers |
-| **Access Control** | approve or decline new accounts, **block IP addresses** (manual or automatic), **tripwire (trap) files** |
-| **User Activity** | one row per user (logins, uploads, downloads, shares, denied, last IP) and a **live stream** of everything happening |
-| **Audit Logs** | filter by user, activity, file, status, dates; CSV export; read-only (no edit or delete exists) |
-| **Security Alerts** | alerts with Low / Medium / High severity, resolve with a note, **editable detection rules**, **test scenarios** |
-| **Reports** | upload, download, sharing and security reports with filters and CSV export |
-| **Storage Analytics** | 1 GB gauge, warning levels, days-until-full forecast, per-user storage, uploads / downloads / sharing charts with filters |
-| File Analytics, Sharing Reports | platform-wide charts and every share link with its status |
-| User Management | roles, enable or disable accounts |
-| File Management | every file's details (never contents or keys), tripwire switch |
-| Notifications | statistics, announcements, e-mail log, SMTP test |
-| System Monitoring | health and response time of every service, encryption key status and rotation |
-
-### Detection rules (14, all editable)
-Repeated failed logins · repeated unauthorized file access · too many downloads · expired-link access · revoked-link access · guessed link tokens · one IP trying many accounts · attack on an admin account · unknown accounts tried · non-admin in an admin area · admin login from a new IP · repeated upload policy violations · dangerous upload blocked · tripwire file touched.
-
-Each rule has a **threshold**, a **time window**, a **severity** and an on/off switch. Rules about an attacking IP can **auto-block** it for a chosen number of minutes. Private and local addresses are never blocked, so you cannot lock yourself out. When a rule fires, an alert is saved, every admin is notified (bell, pop-up, e-mail) and the event appears in the dashboards.
-
-### Look and feel
-- Distinct **user** and **admin** panels with their own menus.
-- Four colour themes (Aurora, Ocean, Emerald, Sunset) from the palette button.
-- A public home page with a live encryption lab that runs in the visitor's browser.
+| Frontend | React.js, JavaScript |
+| Styling | Tailwind CSS |
+| Build Tool | Vite |
+| Backend | Python, FastAPI |
+| Database | PostgreSQL |
+| Document / Log Storage | MongoDB |
+| Caching | Redis |
+| Authentication | JWT |
+| Password Hashing | bcrypt |
+| File Encryption | AES-256-GCM |
+| API Communication | Axios |
+| Charts and Analytics | Recharts |
+| Containerization | Docker, Docker Compose |
 
 ---
 
-## 3. Technology
+## 3. Project Structure
 
-| Part | Technology | Used for |
-|---|---|---|
-| Frontend | React, Vite, Tailwind CSS, Recharts, Zustand | the website and charts |
-| Backend | Python, FastAPI | the API, encryption, access checks, detection rules |
-| PostgreSQL | structured data | users, roles, file records and wrapped keys, share links, permissions |
-| MongoDB | logs and documents | audit log, security alerts, notifications, detection rules, IP block list |
-| Redis | fast temporary data | sessions, rate limits, detection counters, block list cache |
-| Storage | local folder or AWS S3 | encrypted files |
-| Docker | docker compose | starts all five services together |
-
-Where things happen: **Browser → FastAPI → (encrypt) → storage**, with metadata in PostgreSQL, logs in MongoDB and counters in Redis.
+```text
+trustshare/
+│
+├── backend/
+│   ├── app/
+│   │   ├── core/          # Configuration, security and encryption
+│   │   ├── db/            # Database connections
+│   │   ├── models/        # Database models
+│   │   ├── routers/       # API endpoints
+│   │   ├── schemas/       # Request and response schemas
+│   │   ├── services/      # Business logic and security services
+│   │   └── main.py        # FastAPI application entry point
+│   │
+│   ├── scripts/           # Utility scripts
+│   ├── tests/             # Backend test cases
+│   ├── uploads/           # Local file storage
+│   ├── requirements.txt
+│   └── Dockerfile
+│
+├── frontend/
+│   ├── src/
+│   │   ├── components/    # Reusable UI components
+│   │   ├── pages/         # Application pages
+│   │   ├── store/         # Application state
+│   │   └── lib/           # API and utility functions
+│   │
+│   ├── package.json
+│   ├── vite.config.js
+│   └── Dockerfile
+│
+├── docs/                  # Project documentation
+├── .env.example
+├── .gitignore
+├── docker-compose.yml
+├── update.ps1
+└── README.md
+```
 
 ---
 
-## 4. Run it (copy and paste)
+## 4. Prerequisites
 
-All commands are for the **VS Code terminal** (`` Ctrl + ` ``). On Windows use PowerShell.
+Install the following before running the application:
 
-### 4.1 Install once
+1. **Git** – For source code management.
+2. **Docker Desktop** – For running the application and databases.
+3. **Node.js and npm** – For frontend development.
+4. **Python 3.12** – For backend development.
 
-- **Docker Desktop** (start it and wait until it says "running")
-- **VS Code**
-- For development mode and the tests only: **Node.js 18 or newer** and **Python 3.11 or newer**
+For the easiest setup, Docker Desktop is recommended.
 
-Check that everything is installed:
+---
+
+## 5. Run the Application Using Docker (Recommended)
+
+Docker Compose allows you to run the frontend, backend, PostgreSQL, MongoDB, and Redis together.
+
+### Step 1: Clone the repository
+
+```bash
+git clone <YOUR_REPOSITORY_URL>
+```
+
+Navigate into the project directory:
+
+```bash
+cd trustshare
+```
+
+### Step 2: Prepare the local environment file
+
+Make sure your local `.env` file is available in the root project directory. If you have an `.env.example` file, create your local copy:
 
 ```powershell
+<<<<<<< HEAD
 docker --version
 docker compose version
 node --version
 python --version
+=======
+Copy-Item .env.example .env
+```
+
+The application requires the appropriate environment variables to be configured before starting.
+
+### Step 3: Start Docker Desktop
+
+Open Docker Desktop and wait until the Docker engine is running.
+
+### Step 4: Build and start the application
+
+Run this command from the root `trustshare` directory:
+
+```bash
+docker compose up --build
+```
+
+Wait for all containers to start successfully.
+
+### Step 5: Access the application
+
+| Service | URL |
+|---|---|
+| TrustShare Frontend | http://localhost:3000 |
+| Backend API | http://localhost:8000 |
+| Swagger API Documentation | http://localhost:8000/docs |
+| Backend Health Check | http://localhost:8000/health |
+
+### Step 6: Register and log in
+
+1. Open the TrustShare frontend.
+2. Register a user account.
+3. Log in using your credentials.
+4. Upload and manage files.
+5. Test file sharing and other available features.
+
+Administrator access depends on the administrator account configuration.
+
+### Run Docker in the background
+
+```bash
+docker compose up -d --build
+```
+
+### Check running containers
+
+```bash
+docker compose ps
+```
+
+### View application logs
+
+```bash
+docker compose logs
+```
+
+View backend logs:
+
+```bash
+docker compose logs backend
+```
+
+View frontend logs:
+
+```bash
+docker compose logs frontend
+```
+
+### Stop the application
+
+```bash
+docker compose down
+```
+
+**Note:** Avoid `docker compose down -v` unless you intentionally want to delete the persistent database and uploaded-file volumes.
+
+---
+
+## 6. Run the Application in Development Mode
+
+You can also run the backend and frontend separately while using Docker for the databases.
+
+### Step 1: Start the database services
+
+From the root project directory:
+
+```bash
+docker compose up -d postgres mongo redis
+```
+
+Check the database containers:
+
+```bash
+docker compose ps
+```
+
+### Step 2: Start the backend
+
+Open a new terminal:
+
+```powershell
+cd backend
+```
+
+Create a virtual environment:
+
+```powershell
+python -m venv venv
+```
+
+Activate it:
+
+```powershell
+.\venv\Scripts\Activate.ps1
+```
+
+If PowerShell blocks activation:
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+```
+
+Then activate again:
+
+```powershell
+.\venv\Scripts\Activate.ps1
+```
+
+Install backend dependencies:
+
+```bash
+pip install -r requirements.txt
+```
+
+Start the FastAPI server:
+
+```bash
+uvicorn app.main:app --reload
+```
+
+Backend URL:
+
+http://localhost:8000
+
+### Step 3: Start the frontend
+
+Open another terminal:
+
+```powershell
+cd frontend
+```
+
+Install frontend dependencies:
+
+```bash
+npm install
+```
+
+Start the Vite development server:
+
+```bash
+npm run dev
+```
+
+Frontend URL:
+
+http://localhost:5173
+
+Keep both terminals running while using the application.
+
+---
+
+## 7. Running Backend Tests
+
+The backend includes automated tests for application functionality and security.
+
+Navigate to the backend directory:
+
+```bash
+cd backend
+```
+
+Activate the virtual environment:
+
+```powershell
+.\venv\Scripts\Activate.ps1
+```
+
+Run the tests:
+
+```bash
+pytest -v
+```
+
+---
+
+## 8. API Documentation
+
+TrustShare uses FastAPI to provide interactive API documentation.
+
+Once the backend is running, open:
+
+http://localhost:8000/docs
+
+The Swagger interface allows developers to explore API endpoints, view request and response structures, and test supported API operations.
+
+---
+
+## 9. Important Application Modules
+
+| Module | Description |
+|---|---|
+| Authentication | User registration, login and token management |
+| File Management | Uploading, downloading and organizing files |
+| Encryption | Protecting stored files using AES-256-GCM |
+| File Sharing | Controlled sharing with expiry and access restrictions |
+| User Dashboard | Personal file and activity management |
+| Admin Dashboard | Platform-level management and monitoring |
+| Security Dashboard | Security events and threat monitoring |
+| Audit Logs | Tracking application activities |
+| Analytics | File, storage and sharing statistics |
+| Notifications | Application notifications and alerts |
+
+---
+
+## 10. Security Considerations
+
+- Passwords are hashed before storage.
+- JWT authentication protects secured API endpoints.
+- Role-based access control restricts administrator functionality.
+- AES-256-GCM protects stored file contents.
+- Audit logs help track application activity.
+- Sharing links support access restrictions and expiration.
+- Sensitive credentials and encryption keys should be kept private.
+- The `.env` file must never be uploaded to a public GitHub repository.
+
+---
+
+## 11. Future Enhancements
+
+Potential improvements include:
+
+- Advanced real-time collaboration.
+- Additional cloud storage integrations.
+- Enhanced notification mechanisms.
+- More detailed security analytics.
+- Improved mobile responsiveness.
+
+>>>>>>> 42655aa (Updated TrustShare README documentation)
