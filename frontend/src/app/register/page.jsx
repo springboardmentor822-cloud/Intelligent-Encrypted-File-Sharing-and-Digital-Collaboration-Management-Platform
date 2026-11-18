@@ -88,7 +88,7 @@ function RegisterForm() {
     <div className="w-full max-w-md">
       {/* Top Title */}
       <div className="text-center mb-6">
-        <h1 className="mt-3 text-3xl font-extrabold tracking-tight text-slate-900">
+        <h1 className="mt-3 text-2xl font-bold tracking-tight text-slate-900">
           Create an Account
         </h1>
         <p className="mt-2 text-xs sm:text-sm text-slate-600">

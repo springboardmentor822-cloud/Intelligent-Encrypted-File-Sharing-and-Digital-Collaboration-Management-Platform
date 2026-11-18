@@ -319,4 +319,329 @@ Milestone 2 secures the TrustShare platform with enterprise-grade **AES-256-GCM 
 | `is_active` | BOOLEAN | DEFAULT TRUE | Active link flag |
 | `revoked_at` | TIMESTAMP | | Revocation timestamp |
 | `created_at` | TIMESTAMP | DEFAULT NOW() | Creation timestamp |
-| `last_accessed_at` | TIMESTAMP | | Last accessed timestamp |
+| `last_accessed_at` | TIMESTAMP | | Last accessed timestamp |
+
+
+---
+
+# TrustShare - Milestone 3: Monitoring, Notifications & Analytics
+
+## Task 1: Activity Monitoring System
+
+### 1. Overview
+The Activity Monitoring module tracks and records all user, file, sharing, and security-relevant activities in TrustShare.
+
+### 2. Architecture & Folder Structure
+```
+backend/app/
+├── activity_monitoring/
+│   ├── __init__.py       # Service & Schema exports
+│   ├── routes.py         # REST endpoints for activity retrieval & metrics
+│   ├── service.py        # ActivityMonitoringService: record & query operations
+│   ├── models.py         # ActivityType & ActivityStatus enumerations
+│   └── schemas.py        # Pydantic schemas (ActivityRecordResponse, ActivitySummaryStats)
+├── authentication/ (auth.py)
+├── file_management/ (files.py)
+├── secure_sharing/ (shares.py)
+└── main.py
+```
+
+### 3. Tracked Activity Matrix
+| Activity Category | Monitored Actions | Activity Type | Default Status |
+| :--- | :--- | :--- | :--- |
+| **Authentication** | `LOGIN_SUCCESS`, `OAUTH_LOGIN` | `login` | `successful` |
+| **Failed Authentication** | `LOGIN_FAILED`, `MFA_FAILED` | `login` | `failed` |
+| **Session Termination** | `LOGOUT` | `logout` | `successful` |
+| **File Creation** | `FILE_UPLOAD` | `upload` | `successful` |
+| **File Retrieval** | `FILE_DOWNLOAD`, `GUEST_FILE_DOWNLOAD` | `download` | `successful` |
+| **File Access** | `FILE_PREVIEW`, `GUEST_FILE_PREVIEW` | `file_access` | `successful` |
+| **Sharing Creation** | `SECURE_SHARE_CREATED` | `share_create` | `successful` |
+| **Link Expiration** | `SHARE_EXPIRED_ACCESS_ATTEMPT` | `share_expire` | `failed` |
+| **Link Revocation** | `SECURE_SHARE_REVOKED`, `SHARE_REVOKED_ACCESS_ATTEMPT` | `share_revoke` | `successful` / `failed` |
+| **Unauthorized Access** | `ACCESS_DENIED`, `PASSWORD_VERIFY_FAILED`, `GUEST_PASSWORD_FAILED`, `UNAUTHORIZED_DOWNLOAD_BLOCKED` | `unauthorized_access` | `failed` |
+
+### 4. MongoDB Schema (`activity_logs`)
+Each record captures the 7 mandatory fields:
+```json
+{
+  "_id": "ObjectId",
+  "activity_id": "act_8a7d3b2f1c04...",
+  "user_id": 42,
+  "username": "usha_admin",
+  "activity_type": "upload",
+  "file_id": "file_uuid_4901",
+  "resource_name": "Project_Report.pdf",
+  "status": "successful",
+  "ip_address": "192.168.1.15",
+  "timestamp": "2026-11-10T11:15:30.000Z",
+  "details": {
+    "file_size": 2048576,
+    "encryption": "AES-256-GCM"
+  }
+}
+```
+
+
+## Task 2: Implement Audit Logging Workflows
+
+### 1. Overview
+Audit Logging maintains a permanent, immutable history of all critical activities performed within TrustShare in a dedicated MongoDB collection named `audit_logs`.
+
+### 2. Audit Log Document Structure (`audit_logs`)
+Every audit log record in `audit_logs` encapsulates the 9 required fields:
+```json
+{
+  "_id": "6730a91f4b2c1e8a...",
+  "log_id": "audit_b82a39c4d0e1...",
+  "user_id": 42,
+  "username": "usha_admin",
+  "activity_type": "upload",
+  "file_id": "file_817290124",
+  "file_name": "Project_Report.pdf",
+  "activity_description": "User Usha uploaded confidential Project_Report.pdf (2.4 MB, AES-256-GCM)",
+  "activity_status": "successful",
+  "ip_address": "192.168.1.15",
+  "date_and_time": "2026-11-10T11:15:30.123+00:00",
+  "details": {
+    "cipher_algorithm": "AES-256-GCM",
+    "storage_backend": "s3"
+  }
+}
+```
+
+### 3. Reusable Logging Integration
+A centralized, reusable function `log_audit_event(...)` in `app/activity_monitoring/audit_service.py` is invoked across all core backend modules:
+1. **Authentication:** Records login successes, failed logins, MFA challenges, logouts.
+2. **File Upload:** Records AES-256 encrypted uploads and quota impacts.
+3. **File Download:** Records authorized file retrieval and streaming.
+4. **File Sharing:** Records share link generation, token hashing, expiration presets.
+5. **Access Permissions:** Records permission enforcement, view-only downloads blocked, guest password verification.
+6. **Security Monitoring:** Records unauthorized attempts, brute-force detections, administrative actions.
+
+### 4. Administrator-Only REST Endpoints
+Mounted at `/audit-logs` and guarded by `require_role(UserRole.ADMIN)`:
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `GET` | `/audit-logs` | Retrieve all audit logs (paginated) |
+| `GET` | `/audit-logs/user/{user_id}` | Retrieve audit history for a specific user |
+| `GET` | `/audit-logs/file/{file_id}` | Retrieve complete audit trail for a specific file |
+| `GET` | `/audit-logs/filter` | Granular filtering by user, activity type, file name/ID, date range, and status |
+| `GET` | `/audit-logs/{log_id}` | Retrieve a specific audit log record |
+
+---
+
+## Task 3: Build a Notification and Security Alert System
+
+### 1. Overview
+The Notification and Security Alert System proactively alerts users and administrators when critical file operations or security anomalies occur. It features real-time in-app delivery, database persistence in MongoDB, automated email notifications (via SMTP or simulated logging), and a dedicated interface in the dashboard.
+
+### 2. Notification Document Schema (`notifications`)
+Every record in the MongoDB `notifications` collection contains the required 7 fields:
+```json
+{
+  "_id": "6730b91f4b2c1e8a...",
+  "notification_id": "notif_f47ac10b58cc...",
+  "user_id": 42,
+  "notification_title": "New File Shared with You",
+  "notification_message": "Alice shared 'Project_Report.pdf' with you (DOWNLOAD access).",
+  "notification_type": "file_share",
+  "priority": "normal",
+  "is_read": false,
+  "created_at": "2026-11-10T11:45:00.000Z",
+  "date_and_time": "2026-11-10T11:45:00.000Z",
+  "target_url": "/share/tok_abc123",
+  "file_id": "file_817290124",
+  "file_name": "Project_Report.pdf",
+  "details": {
+    "sender": "Alice",
+    "permission": "download",
+    "recipient_email": "bob@trustshare.internal"
+  }
+}
+```
+
+### 3. Notification Types & Workflows
+1. **File-Sharing Notifications (`file_share`):**
+   - Triggered when an owner shares a file with a recipient.
+   - Saves a notification for the recipient and dispatches an email notification with access link.
+2. **File-Download Notifications (`file_download`):**
+   - Triggered when a shared file is downloaded by an authorized recipient or guest.
+   - Alerts the file owner with timestamp and downloader identity.
+3. **Security Alert Notifications (`security_alert`):**
+   - Broadcast to system administrators.
+   - Covers: repeated failed login attempts, unauthorized file access attempts, expired link access attempts, and revoked link access attempts.
+4. **Link Expiration Reminders (`link_expiration`):**
+   - Scans active shares nearing their expiration deadline (within 24 hours).
+   - Generates reminder alerts for the file owner with file details and expiration timestamps.
+5. **System Notifications (`system`):**
+   - General maintenance and operational notices.
+
+### 4. REST Endpoints (`/notifications`)
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `GET` | `/notifications` | Retrieve user notifications, total count, and unread count |
+| `POST` | `/notifications/mark-read` | Mark one, multiple, or all notifications as read |
+| `DELETE` | `/notifications` | Clear notification history for the current user |
+| `POST` | `/notifications/check-expirations` | Scan active shares and dispatch expiration reminders |
+
+### 5. Frontend Notification Interface
+- **Navbar Bell Icon:** Displays a live badge with `unreadNotificationsCount` for all authenticated users.
+- **Unified Notification Modal:**
+  - Categorized badges & visual icons for all 5 notification types.
+  - Interactive "Mark as Read" (single or mark all).
+  - Clear history button.
+  - Direct navigation links to files/shares and security audit logs.
+  - Periodic polling (every 15s) for real-time notification delivery.
+
+---
+
+## Task 4: Generate File Activity and Security Reports
+
+### 1. Overview
+The Reporting Engine (`app/reports`) aggregates telemetry from PostgreSQL (`users` table) and MongoDB (`file_metadata`, `audit_logs`, `activity_logs`, `file_shares`, `notifications`) into categorized audit and operational reports. It provides real-time dashboard analytics, interactive date/user/file/status filtering, and export to CSV/JSON.
+
+### 2. Supported Report Categories
+1. **File Upload Reports (`/reports/uploads`):**
+   - Total uploaded files and ingested volume (bytes).
+   - Breakdown of files uploaded by each user.
+   - Chronological upload date and time records.
+   - File type distribution (PDF, Spreadsheet, Image, Archive, Code, Document, Other).
+   - Upload status breakdown (successful vs failed attempts).
+2. **File Download Reports (`/reports/downloads`):**
+   - Total successful downloads.
+   - Downloads by each user.
+   - Most downloaded files leaderboard (ranked by download count).
+   - Chronological download records with timestamps and IP addresses.
+   - Failed download attempt analysis (view-only blocked, password failed, unauthorized).
+3. **File Sharing Reports (`/reports/shares`):**
+   - Distinct files shared and total share links created.
+   - Shares generated by each user.
+   - Sharing recipients distribution (recipient emails and public links).
+   - Status counters: Active, Expired, Revoked links.
+   - Detailed share link records with download limits and expirations.
+4. **User Activity Reports (`/reports/user-activity`):**
+   - Total registered and active users.
+   - Individual user activity matrix: logins, uploads, downloads, shares, failed actions, and last active timestamp.
+   - Chronological timeline of all user actions.
+5. **Security Reports (`/reports/security`):**
+   - Incident counts and listings for:
+     - Failed login attempts.
+     - Unauthorized access attempts.
+     - Suspicious download activities.
+     - Expired link access attempts.
+     - Revoked link access attempts.
+     - Security alerts triggered.
+
+### 3. REST Endpoints (`/reports`)
+All endpoints are strictly protected by `require_role(UserRole.ADMIN)`:
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `GET` | `/reports/summary` | Rollup metrics and dashboard leaderboard cards |
+| `GET` | `/reports/uploads` | File upload reports with type and user distributions |
+| `GET` | `/reports/downloads` | File download reports with failure analysis |
+| `GET` | `/reports/shares` | File sharing reports with active/expired/revoked metrics |
+| `GET` | `/reports/user-activity` | Individual user activity matrix and timeline |
+| `GET` | `/reports/security` | Security incident reports and alert logs |
+| `GET` | `/reports/export` | Export report data to CSV or JSON with active filters |
+
+### 4. Admin Dashboard Reporting Interface
+- Dedicated **"Activity & Reports"** panel accessible via the Admin sidebar.
+- Presets: All Time, Today, Last 7 Days, Last 30 Days, Custom Date Range.
+- Search filters: User search, File name search, Operation status filter.
+- Interactive category tabs with KPI cards, leaderboard tables, and status pill badges.
+- One-click CSV and JSON export buttons.
+
+---
+
+## Task 5: Develop Storage Analytics and Usage Monitoring Dashboard
+
+### 1. Overview
+The Storage Analytics engine (`app/analytics`) queries PostgreSQL `file_records` and MongoDB `file_metadata` to measure real physical disk consumption, user-wise storage quotas, and document access telemetry.
+
+### 2. File Metadata Retrieval (Step 1)
+Connects directly to the existing database schema to extract actual stored metadata:
+- **File ID**: Unique persistent identifier.
+- **File Name**: Original document filename.
+- **File Size**: Stored size in raw bytes.
+- **File Owner**: Owner user ID, username, and email.
+- **Upload Date**: ISO UTC creation timestamp.
+- **Storage Location**: Physical disk path and storage provider (`local`, `s3`, `azure`).
+
+### 3. Core Calculations & Statistics
+- **Total Storage Usage (Step 2)**: Combined size of all uploaded files with capacity utilization gauge against total system quota.
+- **User-Wise Storage Usage (Step 3)**: Breakdown per user account:
+  - User identity (username, email, full name)
+  - Files uploaded count
+  - Storage used (raw bytes & human-readable formatting)
+  - Percentage of total system storage occupied
+- **File Statistics (Step 4)**:
+  - Total uploaded files
+  - Total downloaded files
+  - Total shared files
+  - Total storage occupied
+  - Average file size and largest file
+  - AES-256-GCM encrypted document count
+  - Most frequently downloaded files leaderboard
+
+### 4. REST Endpoints (`/analytics`)
+All endpoints are strictly protected by `require_role(UserRole.ADMIN)`:
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `GET` | `/analytics/storage` | Retrieve total storage usage and provider breakdown |
+| `GET` | `/analytics/users/storage` | Retrieve user-wise storage usage table |
+| `GET` | `/analytics/files` | Retrieve file statistics and leaderboard |
+| `GET` | `/analytics/downloads` | Retrieve download volume, failure rate, and daily trends |
+| `GET` | `/analytics/sharing` | Retrieve sharing statistics (active, expired, revoked links) |
+| `GET` | `/analytics/dashboard` | Retrieve full analytics payload with pre-computed chart series |
+
+### 5. Frontend Visual Dashboard & Charts
+Located at `frontend/src/components/AdminStorageAnalyticsDashboard.jsx`:
+- **Chart 1 (Pie Chart)**: Storage usage distribution by users with interactive hover slices and percentages.
+- **Chart 2 (Bar Chart)**: File uploads by date tracking daily ingestion volume.
+- **Chart 3 (Line / Bar Chart)**: File downloads over time comparing successful deliveries vs blocked/failed attempts.
+- **Chart 4 (Multi-Segment Chart)**: File sharing lifecycle distribution (Active vs Expired vs Revoked) and permission split.
+- **Filter Suite**: Dynamic filtering by Date Range (7/30/90 days or custom range), User search, File Type category, and Activity type.
+
+---
+
+## Task 6: Implement Suspicious Activity Detection
+
+### 1. Overview
+The Suspicious Activity Detection engine (`app/security_monitoring`) tracks real-time operations through sliding time windows to detect brute-force authentication attacks, unauthorized file access, download surges, and link abuse.
+
+### 2. Detection Rules & Thresholds
+| Rule Name | Event Type | Sliding Window | Configured Threshold | Severity | Description |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **Multiple Failed Logins** | `failed_logins` | 10 minutes (600s) | $\ge$ 3 failed attempts | **High** | Brute-force authentication anomaly |
+| **Unauthorized Access** | `unauthorized_access` | 10 minutes (600s) | $\ge$ 3 blocked attempts | **High** | Restricted file access or password failure |
+| **Excessive Downloads** | `excessive_downloads` | 5 minutes (300s) | $\ge$ 5 downloads | **Medium** | Rapid download surge / exfiltration risk |
+| **Expired Link Access** | `expired_link` | 10 minutes (600s) | $\ge$ 2 attempts | **Medium** | Re-accessing expired share links |
+| **Revoked Link Access** | `revoked_link` | 10 minutes (600s) | $\ge$ 2 attempts | **High** | Attempting access via revoked credentials |
+
+### 3. Workflow & Data Persistence
+1. **Activity Evaluation:** Hooked directly into `app.services.logger.log_activity`. Every logged operation evaluates its corresponding rule window.
+2. **Event Persistence:** When a threshold is met, creates an immutable security record in MongoDB `security_events`:
+   - `event_id`: Unique identifier (`sec_ev_...`).
+   - `alert_id`: Linked alert reference.
+   - `user_id` & `username`: Attacker / suspect identity.
+   - `ip_address`: Originating IP address.
+   - `event_type`: Rule category.
+   - `severity`: Low, Medium, High, Critical.
+   - `status`: Open, Investigating, Resolved, Dismissed.
+   - `date_and_time`: ISO UTC timestamp.
+3. **Admin Alerts:** Automatically creates a notification in MongoDB `notifications` and triggers SMTP email alerts.
+
+### 4. REST Endpoints (`/security-monitoring`)
+All endpoints are strictly protected by `require_role(UserRole.ADMIN)`:
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `GET` | `/security-monitoring/summary` | Retrieve 6 KPI summary counts and recent alerts |
+| `GET` | `/security-monitoring/events` | Retrieve paginated events with User, Type, Severity, Status filters |
+| `PATCH` | `/security-monitoring/events/{event_id}/status` | Update incident status (`Investigating`, `Resolved`, `Dismissed`) |
+| `POST` | `/security-monitoring/trigger-scan` | Manually run rules against recent audit logs |
+
+### 5. Frontend Security Monitoring Section
+Located at `frontend/src/components/AdminSuspiciousActivityDashboard.jsx` and integrated into the Admin navigation panel:
+- **6 Metric KPI Cards**: Total Security Events, Failed Logins, Unauthorized Access, Suspicious Downloads, Expired Link Hits, Revoked Link Hits.
+- **Granular Filter Toolbar**: User / IP filter, Event Type dropdown, Severity dropdown, Incident Status dropdown, Date range presets.
+- **Incident Response Table**: Severity indicators, attempt counters, direct status transition buttons ("Investigate", "Resolve", "Dismiss").

@@ -1,5 +1,5 @@
 """
-TrustShare - Milestone 2: AES-256 File Encryption & Key Management Service
+TrustShare - AES-256 File Encryption & Key Management Service
 ========================================================================
 Implements:
 1. Server-side encryption using AES-256 in Galois/Counter Mode (AES-256-GCM).
@@ -195,7 +195,7 @@ def decrypt_file_data(
 # Class-based interface for enterprise service injection
 class EncryptionService:
     """
-    Service encapsulation for Milestone 2 AES-256-GCM file encryption.
+    Service encapsulation for AES-256-GCM file encryption.
     """
     @staticmethod
     def generate_dek() -> bytes:

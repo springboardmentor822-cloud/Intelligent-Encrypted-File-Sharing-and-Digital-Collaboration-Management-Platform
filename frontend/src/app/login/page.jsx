@@ -77,7 +77,7 @@ function LoginForm() {
           <Sparkles className="h-3.5 w-3.5 text-blue-600" />
           <span>Token-Based Authentication</span>
         </div>
-        <h1 className="mt-3 text-3xl font-extrabold tracking-tight text-slate-900">
+        <h1 className="mt-3 text-2xl font-bold tracking-tight text-slate-900">
           Welcome Back
         </h1>
         <p className="mt-2 text-xs sm:text-sm text-slate-600">
@@ -174,7 +174,7 @@ function LoginForm() {
 
         <div className="mt-6 pt-4 border-t border-slate-100 text-center">
           <p className="text-xs text-slate-500">
-            Don't have an account yet?{" "}
+            Don&apos;t have an account yet?{" "}
             <Link
               href="/register"
               className="font-semibold text-blue-600 hover:text-blue-700 hover:underline"

@@ -55,7 +55,7 @@ class User(Base):
 
 
 # ==============================================================================
-# MILESTONE 2: POSTGRESQL FILE METADATA & ENCRYPTION KEY REFERENCES (Task 2, 7)
+# FILE METADATA & ENCRYPTION KEY REFERENCES
 # ==============================================================================
 
 class FileRecord(Base):
@@ -119,7 +119,7 @@ FileMetadata = FileRecord
 
 
 # ==============================================================================
-# MILESTONE 2: SECURE SHARE LINKS & PERMISSIONS (Task 4, 5, 6)
+# SECURE SHARE LINKS & PERMISSIONS
 # ==============================================================================
 
 class ShareLink(Base):

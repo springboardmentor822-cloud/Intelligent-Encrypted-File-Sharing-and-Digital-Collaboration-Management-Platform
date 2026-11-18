@@ -24,7 +24,10 @@ import {
   Bell,
   Palette,
   Check,
-  Sparkles
+  Sparkles,
+  Sun,
+  Moon,
+  Monitor
 } from "lucide-react";
 
 const AVATAR_GRADIENTS = [
@@ -36,7 +39,7 @@ const AVATAR_GRADIENTS = [
   { id: "slate", name: "Midnight Slate", class: "from-slate-700 to-slate-900", text: "text-slate-700", bg: "bg-slate-50" }
 ];
 
-export default function UserSettingsSection({ currentUser, onUserUpdated }) {
+export default function UserSettingsSection({ currentUser, onUserUpdated, onThemeUpdated }) {
   const [activeSettingsTab, setActiveSettingsTab] = useState("profile"); // 'profile', 'security', 'preferences', 'vault'
 
   const [formData, setFormData] = useState({
@@ -47,6 +50,13 @@ export default function UserSettingsSection({ currentUser, onUserUpdated }) {
     current_password: "",
     new_password: "",
     confirm_password: ""
+  });
+
+  const [currentTheme, setCurrentTheme] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("trustshare_theme") || "light";
+    }
+    return "light";
   });
 
   const [avatarTheme, setAvatarTheme] = useState(() => {
@@ -117,6 +127,27 @@ export default function UserSettingsSection({ currentUser, onUserUpdated }) {
       localStorage.setItem("trustshare_avatar_theme", themeId);
     }
     setSuccessMessage("Avatar accent theme updated.");
+  };
+
+  const handleThemeChange = (newTheme) => {
+    setCurrentTheme(newTheme);
+    if (typeof window !== "undefined") {
+      let effectiveTheme = newTheme;
+      if (newTheme === "system") {
+        const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+        effectiveTheme = prefersDark ? "dark" : "light";
+      }
+      localStorage.setItem("trustshare_theme", newTheme);
+      if (effectiveTheme === "dark") {
+        document.documentElement.classList.add("dark");
+      } else {
+        document.documentElement.classList.remove("dark");
+      }
+      if (onThemeUpdated) {
+        onThemeUpdated(effectiveTheme);
+      }
+    }
+    setSuccessMessage(`Theme updated to ${newTheme.toUpperCase()}`);
   };
 
   const handleReset = () => {
@@ -232,7 +263,7 @@ export default function UserSettingsSection({ currentUser, onUserUpdated }) {
           <span className="text-slate-900 font-bold">Settings</span>
         </div>
 
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
+        <h1 className="text-xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
           <User className="h-6 w-6 text-blue-600" />
           <span>Profile & Account Settings</span>
         </h1>
@@ -719,6 +750,85 @@ export default function UserSettingsSection({ currentUser, onUserUpdated }) {
                       preferences.securityAlerts ? "translate-x-5" : "translate-x-0"
                     }`}
                   />
+                </button>
+              </div>
+            </div>
+
+            {/* Appearance & Theme (Light / Dark) */}
+            <div className="space-y-3 pt-4 border-t border-slate-100">
+              <div>
+                <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                  <Palette className="h-4 w-4 text-blue-600" />
+                  <span>Theme & Display Appearance</span>
+                </h4>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  Select your default interface appearance (persisted to your account settings)
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {/* Light Mode */}
+                <button
+                  type="button"
+                  onClick={() => handleThemeChange("light")}
+                  className={`p-4 rounded-xl border text-left transition cursor-pointer flex flex-col justify-between ${
+                    currentTheme === "light"
+                      ? "border-blue-600 bg-blue-50/70 shadow-xs ring-1 ring-blue-600"
+                      : "border-slate-200 hover:border-slate-300 bg-white"
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <Sun className={`h-5 w-5 ${currentTheme === "light" ? "text-amber-500" : "text-slate-400"}`} />
+                    {currentTheme === "light" && <Check className="h-4 w-4 text-blue-600 font-bold" />}
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-slate-900 block">Light Mode</span>
+                    <span className="text-[10px] text-slate-500">Clean, crisp high-contrast UI</span>
+                  </div>
+                </button>
+
+                {/* Dark Mode */}
+                <button
+                  type="button"
+                  onClick={() => handleThemeChange("dark")}
+                  className={`p-4 rounded-xl border text-left transition cursor-pointer flex flex-col justify-between ${
+                    currentTheme === "dark"
+                      ? "border-blue-600 bg-slate-900 text-white shadow-xs ring-1 ring-blue-600"
+                      : "border-slate-200 hover:border-slate-300 bg-white"
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <Moon className={`h-5 w-5 ${currentTheme === "dark" ? "text-cyan-400" : "text-slate-400"}`} />
+                    {currentTheme === "dark" && <Check className="h-4 w-4 text-cyan-400 font-bold" />}
+                  </div>
+                  <div>
+                    <span className={`text-xs font-bold block ${currentTheme === "dark" ? "text-white" : "text-slate-900"}`}>
+                      Dark Mode
+                    </span>
+                    <span className={`text-[10px] ${currentTheme === "dark" ? "text-slate-400" : "text-slate-500"}`}>
+                      Low-light, comfortable viewing
+                    </span>
+                  </div>
+                </button>
+
+                {/* System Default */}
+                <button
+                  type="button"
+                  onClick={() => handleThemeChange("system")}
+                  className={`p-4 rounded-xl border text-left transition cursor-pointer flex flex-col justify-between ${
+                    currentTheme === "system"
+                      ? "border-blue-600 bg-blue-50/70 shadow-xs ring-1 ring-blue-600"
+                      : "border-slate-200 hover:border-slate-300 bg-white"
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <Monitor className={`h-5 w-5 ${currentTheme === "system" ? "text-blue-600" : "text-slate-400"}`} />
+                    {currentTheme === "system" && <Check className="h-4 w-4 text-blue-600 font-bold" />}
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-slate-900 block">System Default</span>
+                    <span className="text-[10px] text-slate-500">Synchronize with OS settings</span>
+                  </div>
                 </button>
               </div>
             </div>

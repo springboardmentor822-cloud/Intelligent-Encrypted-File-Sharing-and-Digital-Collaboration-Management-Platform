@@ -142,21 +142,25 @@ async def get_admin_analytics(
 
     # 5. Activity Timeline & Security Trends (Dynamic Days & Custom Dates)
     now_utc = datetime.now(timezone.utc)
-    if start_date and end_date:
+    actual_days = days if isinstance(days, int) else 30
+    actual_start = start_date if isinstance(start_date, str) else None
+    actual_end = end_date if isinstance(end_date, str) else None
+
+    if actual_start and actual_end:
         try:
-            start_dt = datetime.fromisoformat(start_date.replace("Z", "+00:00"))
-            end_dt = datetime.fromisoformat(end_date.replace("Z", "+00:00"))
+            start_dt = datetime.fromisoformat(actual_start.replace("Z", "+00:00"))
+            end_dt = datetime.fromisoformat(actual_end.replace("Z", "+00:00"))
             if start_dt.tzinfo is None:
                 start_dt = start_dt.replace(tzinfo=timezone.utc)
             if end_dt.tzinfo is None:
                 end_dt = end_dt.replace(tzinfo=timezone.utc)
             num_days = max(1, (end_dt.date() - start_dt.date()).days + 1)
         except Exception:
-            num_days = max(1, min(days, 365))
+            num_days = max(1, min(actual_days, 365))
             end_dt = now_utc
             start_dt = end_dt - timedelta(days=num_days - 1)
     else:
-        num_days = max(1, min(days, 365))
+        num_days = max(1, min(actual_days, 365))
         end_dt = now_utc
         start_dt = end_dt - timedelta(days=num_days - 1)
 
@@ -678,7 +682,7 @@ async def update_user_status(
 
 
 # ==============================================================================
-# 4. GLOBAL FILE INVENTORY & ADMIN MODERATION
+# 4. GLOBAL FILE INVENTORY & ADMIN MODERATION (ZERO-KNOWLEDGE PRIVACY ACTIVE)
 # ==============================================================================
 @router.get("/files")
 async def list_all_system_files(
@@ -687,16 +691,12 @@ async def list_all_system_files(
     skip: int = Query(0, ge=0),
     admin_user: User = Depends(require_role(UserRole.ADMIN))
 ):
-    query: Dict[str, Any] = {"is_folder": False}
-    if search:
-        query["name"] = {"$regex": search.strip(), "$options": "i"}
-
-    cursor = mongo_db.file_metadata.find(query).sort("created_at", -1).skip(skip).limit(limit)
-    docs = await cursor.to_list(length=limit)
-    items = [sanitize_item(d) for d in docs]
-    total = await mongo_db.file_metadata.count_documents(query)
-
-    return {"files": items, "total": total}
+    # Strict Zero-Knowledge Privacy Architecture:
+    # Under no circumstances can administrators inspect, list, or browse regular users' private files.
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Zero-knowledge privacy active: User vaults are encrypted and strictly inaccessible to administrators."
+    )
 
 
 @router.delete("/files/{item_id}")
@@ -802,21 +802,25 @@ async def get_admin_security_dashboard(
     and audit event distributions computed directly from live database records.
     """
     now_utc = datetime.now(timezone.utc)
-    if start_date and end_date:
+    actual_days = days if isinstance(days, int) else 30
+    actual_start = start_date if isinstance(start_date, str) else None
+    actual_end = end_date if isinstance(end_date, str) else None
+
+    if actual_start and actual_end:
         try:
-            start_dt = datetime.fromisoformat(start_date.replace("Z", "+00:00"))
-            end_dt = datetime.fromisoformat(end_date.replace("Z", "+00:00"))
+            start_dt = datetime.fromisoformat(actual_start.replace("Z", "+00:00"))
+            end_dt = datetime.fromisoformat(actual_end.replace("Z", "+00:00"))
             if start_dt.tzinfo is None:
                 start_dt = start_dt.replace(tzinfo=timezone.utc)
             if end_dt.tzinfo is None:
                 end_dt = end_dt.replace(tzinfo=timezone.utc)
             num_days = max(1, (end_dt.date() - start_dt.date()).days + 1)
         except Exception:
-            num_days = max(1, min(days, 365))
+            num_days = max(1, min(actual_days, 365))
             end_dt = now_utc
             start_dt = end_dt - timedelta(days=num_days - 1)
     else:
-        num_days = max(1, min(days, 365))
+        num_days = max(1, min(actual_days, 365))
         end_dt = now_utc
         start_dt = end_dt - timedelta(days=num_days - 1)
 

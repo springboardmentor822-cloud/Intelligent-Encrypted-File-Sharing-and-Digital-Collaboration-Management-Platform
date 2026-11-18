@@ -1,5 +1,5 @@
 """
-TrustShare - Milestone 2: Cloud Storage Integration Service (AWS S3 & Azure Blob Storage)
+TrustShare - Cloud Storage Integration Service (AWS S3 & Azure Blob Storage)
 ========================================================================================
 Implements Task Two:
 1. Private Storage Bucket / Container Abstraction.
@@ -255,7 +255,7 @@ class AzureBlobStorageProvider(BaseStorageProvider):
 
 class SecureStorageService:
     """
-    Unified Secure Storage Abstraction Layer for Milestone 2.
+    Unified Secure Storage Abstraction Layer.
     Stores AES-256-GCM encrypted binary blobs with zero plaintext on disk or cloud.
     Automatically manages local, AWS S3, or Azure Blob Storage providers.
     """

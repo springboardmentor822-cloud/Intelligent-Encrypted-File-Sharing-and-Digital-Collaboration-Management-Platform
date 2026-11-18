@@ -153,6 +153,16 @@ async def login(request: Request, credentials: UserLogin, db: Session = Depends(
             ip_address=client_ip,
             details={"reason": "Incorrect password"}
         )
+        try:
+            from app.notifications import notification_service
+            await notification_service.notify_security_alert(
+                alert_title="Failed Login Attempt",
+                alert_message=f"Incorrect password attempt for user '{user.username}' from IP {client_ip}",
+                ip_address=client_ip,
+                priority="high"
+            )
+        except Exception:
+            pass
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect password. Please try again."

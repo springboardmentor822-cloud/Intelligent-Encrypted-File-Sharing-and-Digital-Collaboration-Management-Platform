@@ -33,7 +33,7 @@ from app.services.rate_limiter import check_rate_limit
 from app.services.crypto_service import decrypt_file_data
 from app.services.storage_service import storage_service
 
-router = APIRouter(tags=["Milestone 2: Secure Sharing & Guest Access"])
+router = APIRouter(tags=["Secure Sharing & Guest Access"])
 
 
 # Schemas
@@ -166,7 +166,7 @@ async def create_share_link(
 
     await mongo_db.file_shares.insert_one(share_doc)
 
-    # Sync share grant and permissions to PostgreSQL (Milestone 2 Step 8)
+    # Sync share grant and permissions to PostgreSQL
     try:
         with SessionLocal() as db_session:
             pg_share = ShareLink(
@@ -209,6 +209,21 @@ async def create_share_link(
         }
     )
 
+    # Trigger file sharing notification
+    try:
+        from app.notifications import notification_service
+        await notification_service.notify_file_shared(
+            sender_username=current_user.username,
+            recipient_email=req.recipient_email,
+            file_name=item["name"],
+            file_id=item_id,
+            share_token=share_token,
+            permission=req.permission,
+            guest_password=raw_guest_pwd if has_guest_pwd else None
+        )
+    except Exception:
+        pass
+
     clean = sanitize_share_doc(share_doc)
     clean["share_url"] = f"/share/{share_token}"
     return clean
@@ -220,13 +235,18 @@ async def create_share_link(
 @router.get("/files/{item_id}/shares")
 async def get_item_shares(
     item_id: str,
+    active_only: bool = Query(False),
     current_user: User = Depends(get_current_user)
 ):
-    """Lists all active and historical share links for a specific file or folder."""
-    shares = await mongo_db.file_shares.find({
+    """Lists share links for a specific file or folder. Can filter to active only."""
+    query: Dict[str, Any] = {
         "item_id": item_id,
         "owner_id": current_user.id
-    }).sort("created_at", -1).to_list(length=100)
+    }
+    if active_only:
+        query["is_active"] = True
+
+    shares = await mongo_db.file_shares.find(query).sort("created_at", -1).to_list(length=100)
 
     now = datetime.now(timezone.utc)
     res = []
@@ -240,6 +260,7 @@ async def get_item_shares(
             if now > exp:
                 is_expired = True
         clean["is_expired"] = is_expired
+        clean["is_revoked"] = not s.get("is_active", True)
         clean["is_exhausted"] = bool(s.get("max_downloads") and s.get("downloads_count", 0) >= s["max_downloads"])
         res.append(clean)
 
@@ -248,12 +269,15 @@ async def get_item_shares(
 
 @router.get("/files/shares/my-shares")
 async def get_my_all_shares(
+    active_only: bool = Query(False),
     current_user: User = Depends(get_current_user)
 ):
     """Lists all active and historical shares created by the authenticated user."""
-    shares = await mongo_db.file_shares.find({
-        "owner_id": current_user.id
-    }).sort("created_at", -1).to_list(length=500)
+    query: Dict[str, Any] = {"owner_id": current_user.id}
+    if active_only:
+        query["is_active"] = True
+
+    shares = await mongo_db.file_shares.find(query).sort("created_at", -1).to_list(length=500)
 
     now = datetime.now(timezone.utc)
     res = []
@@ -266,6 +290,7 @@ async def get_my_all_shares(
             if now > exp:
                 is_expired = True
         clean["is_expired"] = is_expired
+        clean["is_revoked"] = not s.get("is_active", True)
         clean["is_exhausted"] = bool(s.get("max_downloads") and s.get("downloads_count", 0) >= s["max_downloads"])
         res.append(clean)
 
@@ -279,13 +304,38 @@ async def get_my_all_shares(
 async def revoke_share_link(
     share_id: str,
     request: Request,
+    permanent: bool = Query(False),
     current_user: User = Depends(get_current_user)
 ):
-    """Immediately revokes a secure share link, cutting off all guest access."""
+    """Immediately revokes or permanently purges a secure share link, cutting off guest access."""
     share = await mongo_db.file_shares.find_one({"_id": share_id, "owner_id": current_user.id})
     if not share:
         raise HTTPException(status_code=404, detail="Share record not found.")
 
+    if permanent or not share.get("is_active", True):
+        # Permanently purge record from database
+        await mongo_db.file_shares.delete_one({"_id": share_id})
+        try:
+            with SessionLocal() as db_session:
+                pg_s = db_session.query(ShareLink).filter(ShareLink.id == share_id, ShareLink.owner_id == current_user.id).first()
+                if pg_s:
+                    db_session.delete(pg_s)
+                    db_session.commit()
+        except Exception:
+            pass
+
+        await log_activity(
+            user_id=current_user.id,
+            username=current_user.username,
+            action="SECURE_SHARE_PURGED",
+            resource_id=share["item_id"],
+            resource_name=share["item_name"],
+            ip_address=request.client.host if request.client else "127.0.0.1",
+            details={"share_id": share_id, "permanent": True}
+        )
+        return {"status": "success", "message": "Share link permanently removed from database."}
+
+    # Soft revoke: deactivate immediately
     await mongo_db.file_shares.update_one(
         {"_id": share_id},
         {"$set": {"is_active": False, "revoked_at": datetime.now(timezone.utc).isoformat()}}
@@ -311,12 +361,12 @@ async def revoke_share_link(
         details={"share_id": share_id, "share_token": share["share_token"]}
     )
 
-    return {"status": "success", "message": "Share link revoked successfully. Guest access terminated."}
+    return {"status": "success", "message": "Share link revoked immediately. Guest access terminated."}
 
 
 async def find_share_by_token(token: str) -> Optional[Dict[str, Any]]:
     """
-    Looks up share document by exact URL token or cryptographic SHA-256 token hash (Milestone 2 Task 4).
+    Looks up share document by exact URL token or cryptographic SHA-256 token hash.
     """
     token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
     return await mongo_db.file_shares.find_one({
@@ -508,6 +558,27 @@ async def download_shared_file(
     """
     share = await find_share_by_token(token)
     if not share or not share.get("is_active", True):
+        if share:
+            await log_activity(
+                user_id=share.get("owner_id"),
+                username="Guest",
+                action="SHARE_REVOKED_ACCESS_ATTEMPT",
+                resource_id=share.get("item_id"),
+                resource_name=share.get("item_name"),
+                ip_address=request.client.host if request.client else "127.0.0.1",
+                status="failed"
+            )
+            try:
+                from app.notifications import notification_service
+                await notification_service.notify_security_alert(
+                    alert_title="Revoked Link Access Attempt",
+                    alert_message=f"Attempted access to revoked share link for '{share.get('item_name')}'",
+                    ip_address=request.client.host if request.client else "127.0.0.1",
+                    file_id=share.get("item_id"),
+                    file_name=share.get("item_name")
+                )
+            except Exception:
+                pass
         raise HTTPException(status_code=404, detail="Share link is invalid or has been revoked.")
 
     # 1. Enforce Link Expiration
@@ -515,6 +586,26 @@ async def download_shared_file(
     if share.get("expires_at"):
         exp = datetime.fromisoformat(share["expires_at"].replace("Z", "+00:00"))
         if now > exp:
+            await log_activity(
+                user_id=share.get("owner_id"),
+                username="Guest",
+                action="SHARE_EXPIRED_ACCESS_ATTEMPT",
+                resource_id=share.get("item_id"),
+                resource_name=share.get("item_name"),
+                ip_address=request.client.host if request.client else "127.0.0.1",
+                status="failed"
+            )
+            try:
+                from app.notifications import notification_service
+                await notification_service.notify_security_alert(
+                    alert_title="Expired Link Access Attempt",
+                    alert_message=f"Attempted access to expired share link for '{share.get('item_name')}'",
+                    ip_address=request.client.host if request.client else "127.0.0.1",
+                    file_id=share.get("item_id"),
+                    file_name=share.get("item_name")
+                )
+            except Exception:
+                pass
             raise HTTPException(status_code=410, detail="This share link has expired.")
 
     # 2. Enforce Max Downloads Quota
@@ -526,6 +617,27 @@ async def download_shared_file(
 
     # 3. Enforce Access Permission (View Only vs Download)
     if share.get("permission") == "view":
+        await log_activity(
+            user_id=share.get("owner_id"),
+            username="Guest",
+            action="UNAUTHORIZED_DOWNLOAD_BLOCKED",
+            resource_id=share.get("item_id"),
+            resource_name=share.get("item_name"),
+            ip_address=request.client.host if request.client else "127.0.0.1",
+            details={"reason": "Attempted download on view-only share link"},
+            status="failed"
+        )
+        try:
+            from app.notifications import notification_service
+            await notification_service.notify_security_alert(
+                alert_title="Unauthorized Download Blocked",
+                alert_message=f"Download attempt blocked on View-Only share link for '{share.get('item_name')}'",
+                ip_address=request.client.host if request.client else "127.0.0.1",
+                file_id=share.get("item_id"),
+                file_name=share.get("item_name")
+            )
+        except Exception:
+            pass
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="This share link is restricted to View-Only access. Downloading the file has been disabled by the owner."
@@ -619,6 +731,18 @@ async def download_shared_file(
         details={"share_token": token, "file_size": len(plaintext)}
     )
 
+    # Notify file owner that their shared document was downloaded
+    try:
+        from app.notifications import notification_service
+        await notification_service.notify_file_downloaded(
+            owner_id=share["owner_id"],
+            downloader_name="Guest Recipient" if not authorization else "Authorized User",
+            file_name=file_doc["name"],
+            file_id=file_doc["_id"]
+        )
+    except Exception:
+        pass
+
     # Stream decrypted plaintext directly to guest
     return StreamingResponse(
         io.BytesIO(plaintext),
@@ -700,6 +824,17 @@ async def preview_shared_file(
     await mongo_db.file_shares.update_one(
         {"_id": share["_id"]},
         {"$inc": {"views_count": 1}, "$set": {"last_accessed_at": now.isoformat()}}
+    )
+
+    await log_activity(
+        user_id=share["owner_id"],
+        username="Guest",
+        action="FILE_PREVIEW",
+        resource_id=file_doc["_id"],
+        resource_name=file_doc["name"],
+        ip_address=request.client.host if request.client else "127.0.0.1",
+        details={"share_token": token, "permission": share.get("permission", "view")},
+        status="successful"
     )
 
     return StreamingResponse(

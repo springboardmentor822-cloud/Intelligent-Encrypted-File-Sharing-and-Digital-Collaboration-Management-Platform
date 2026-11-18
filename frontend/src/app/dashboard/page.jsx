@@ -8,9 +8,15 @@ import AdminGraphicalAnalytics from "@/components/AdminGraphicalAnalytics";
 import UserFileAnalytics from "@/components/UserFileAnalytics";
 import AdminSecurityDashboard from "@/components/AdminSecurityDashboard";
 import AdminSystemMonitoring from "@/components/AdminSystemMonitoring";
+import AdminReportsDashboard from "@/components/AdminReportsDashboard";
+import AdminStorageAnalyticsDashboard from "@/components/AdminStorageAnalyticsDashboard";
+import AdminSuspiciousActivityDashboard from "@/components/AdminSuspiciousActivityDashboard";
+import AdminActivityLogsDashboard from "@/components/AdminActivityLogsDashboard";
+import AdminAuditLogsDashboard from "@/components/AdminAuditLogsDashboard";
 import UserSecuritySection from "@/components/UserSecuritySection";
 import UserSettingsSection from "@/components/UserSettingsSection";
 import {
+  FileCheck,
   ShieldCheck,
   Shield,
   Search,
@@ -63,7 +69,9 @@ import {
   Calendar,
   ChevronDown,
   Filter,
-  RotateCcw
+  RotateCcw,
+  Sun,
+  Moon
 } from "lucide-react";
 
 export default function DashboardPage() {
@@ -96,6 +104,47 @@ export default function DashboardPage() {
   // Security Alerts & Failed Login Notifications
   const [securityAlerts, setSecurityAlerts] = useState({ count: 0, list: [] });
   const [showNotificationsModal, setShowNotificationsModal] = useState(false);
+  const [notificationsList, setNotificationsList] = useState([]);
+  const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
+  const [loadingNotifications, setLoadingNotifications] = useState(false);
+
+  // Theme State (Light / Dark Mode with Persistence)
+  const [theme, setTheme] = useState("light");
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("trustshare_theme");
+      const prefersDark = typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: dark)").matches;
+      let initial = stored || (prefersDark ? "dark" : "light");
+      if (initial === "system") {
+        initial = prefersDark ? "dark" : "light";
+      }
+      setTheme(initial);
+      if (initial === "dark") {
+        document.documentElement.classList.add("dark");
+      } else {
+        document.documentElement.classList.remove("dark");
+      }
+    } catch (e) {
+      console.error("Theme load error:", e);
+    }
+  }, []);
+
+  const toggleTheme = () => {
+    const next = theme === "dark" ? "light" : "dark";
+    setTheme(next);
+    try {
+      localStorage.setItem("trustshare_theme", next);
+      if (next === "dark") {
+        document.documentElement.classList.add("dark");
+      } else {
+        document.documentElement.classList.remove("dark");
+      }
+      showToast(`Switched to ${next === "dark" ? "Dark" : "Light"} theme`, "info");
+    } catch (e) {
+      console.error("Theme toggle error:", e);
+    }
+  };
 
   // Seen tracking for badges (alerts, files, shared, users, security, analytics)
   const [seenBadges, setSeenBadges] = useState({
@@ -166,7 +215,7 @@ export default function DashboardPage() {
   const [copiedLink, setCopiedLink] = useState(false);
   const [renameModal, setRenameModal] = useState({ isOpen: false, item: null, newName: "" });
 
-  // Milestone 2 Secure Sharing Configuration State
+  // Encrypted Secure Sharing Configuration State
   const [shareConfig, setShareConfig] = useState({
     permission: "download", // "view" or "download"
     hasGuestPassword: true,
@@ -264,12 +313,28 @@ export default function DashboardPage() {
       await api.delete(`/files/shares/${shareId}`);
       setShareConfig((prev) => ({
         ...prev,
-        existingShares: prev.existingShares.filter((s) => s.id !== shareId)
+        existingShares: prev.existingShares.map((s) =>
+          s.id === shareId ? { ...s, is_active: false, is_revoked: true } : s
+        )
       }));
       showToast("Share link revoked immediately. Guest access terminated.", "success");
       fetchItems();
     } catch (err) {
       showToast("Failed to revoke share link.", "error");
+    }
+  };
+
+  const handleDeleteSharePermanent = async (shareId) => {
+    try {
+      await api.delete(`/files/shares/${shareId}?permanent=true`);
+      setShareConfig((prev) => ({
+        ...prev,
+        existingShares: prev.existingShares.filter((s) => s.id !== shareId)
+      }));
+      showToast("Share record permanently deleted.", "success");
+      fetchItems();
+    } catch (err) {
+      showToast("Failed to delete share record.", "error");
     }
   };
 
@@ -341,9 +406,10 @@ export default function DashboardPage() {
       setToken(storedToken);
       setUser(parsedUser);
       if (parsedUser.role === "admin") {
-        setActiveTab("admin-security-dashboard");
+        setActiveTab("admin-analytics");
+        setAdminSubTab("overview");
       } else {
-        setActiveTab("file-analytics");
+        setActiveTab("my-vault");
       }
     } catch {
       window.location.href = "/login";
@@ -466,6 +532,11 @@ export default function DashboardPage() {
   useEffect(() => {
     const isSpecialTab = [
       "admin-security-dashboard",
+      "admin-reports",
+      "admin-storage",
+      "admin-suspicious-activity",
+      "admin-activity-logs",
+      "admin-audit-logs",
       "system-monitoring",
       "admin-analytics",
       "admin-overview",
@@ -490,6 +561,52 @@ export default function DashboardPage() {
       fetchSecurityAlerts();
     }
   }, [user, token, fetchSecurityAlerts]);
+
+  // Fetch Notifications & Security Alerts for All Users
+  const fetchNotifications = useCallback(async () => {
+    if (!token) return;
+    try {
+      setLoadingNotifications(true);
+      const res = await api.get("/notifications");
+      setNotificationsList(res.data?.notifications || []);
+      setUnreadNotificationsCount(res.data?.unread_count || 0);
+    } catch (err) {
+      console.warn("Failed to load notifications:", err);
+    } finally {
+      setLoadingNotifications(false);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    if (token) {
+      fetchNotifications();
+      const interval = setInterval(fetchNotifications, 15000);
+      return () => clearInterval(interval);
+    }
+  }, [token, fetchNotifications]);
+
+  const handleMarkNotificationRead = async (notifId = null, markAll = false) => {
+    try {
+      await api.post("/notifications/mark-read", {
+        notification_ids: notifId ? [notifId] : null,
+        mark_all: markAll
+      });
+      fetchNotifications();
+    } catch (err) {
+      console.warn("Mark read failed:", err);
+    }
+  };
+
+  const handleClearNotifications = async () => {
+    try {
+      await api.delete("/notifications");
+      setNotificationsList([]);
+      setUnreadNotificationsCount(0);
+      showToast("Notification history cleared.", "success");
+    } catch (err) {
+      console.warn("Clear failed:", err);
+    }
+  };
 
   // Auto-dismiss badges once user/admin visits the corresponding section
   useEffect(() => {
@@ -713,19 +830,25 @@ export default function DashboardPage() {
     return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
   };
 
-  // Sign out
+  // Sign out (Both User and Admin)
   const handleLogout = async () => {
     try {
-      await api.post("/auth/logout");
+      await Promise.race([
+        api.post("/auth/logout"),
+        new Promise((_, reject) => setTimeout(() => reject("timeout"), 1200))
+      ]);
     } catch (err) {
-      console.warn("Logout notification failed:", err);
+      console.warn("Logout notification error/timeout:", err);
     } finally {
       localStorage.removeItem("trustshare_token");
       localStorage.removeItem("trustshare_user");
+      localStorage.removeItem("access_token");
+      localStorage.removeItem("user");
+      sessionStorage.clear();
       setUser(null);
       setToken(null);
       setActiveTab("my-vault");
-      window.location.href = "/login";
+      window.location.replace("/login");
     }
   };
 
@@ -805,7 +928,9 @@ export default function DashboardPage() {
           fetchUserLogs();
           return;
         }
-        throw new Error("Download failed");
+        const errJson = await response.json().catch(() => ({}));
+        showToast(errJson.detail || "Download failed. Check file permissions.", "error");
+        return;
       }
 
       const blob = await response.blob();
@@ -849,7 +974,9 @@ export default function DashboardPage() {
           fetchUserLogs();
           return;
         }
-        throw new Error("Folder download failed");
+        const errJson = await response.json().catch(() => ({}));
+        showToast(errJson.detail || "Folder download failed. Check permissions.", "error");
+        return;
       }
 
       const blob = await response.blob();
@@ -975,6 +1102,7 @@ export default function DashboardPage() {
   // Drag and drop event handlers
   const handleDragOver = (e) => {
     e.preventDefault();
+    if (user?.role === "admin") return;
     if (activeTab === "trash" || activeTab === "shared-with-me" || activeTab === "shared") {
       return;
     }
@@ -989,6 +1117,10 @@ export default function DashboardPage() {
   const handleDrop = async (e) => {
     e.preventDefault();
     setIsDragging(false);
+    if (user?.role === "admin") {
+      showToast("Administrators have oversight and audit access; file uploads are performed by user accounts.", "info");
+      return;
+    }
     if (activeTab === "trash") {
       showToast("Cannot upload files into Trash. Switch to My Vault to upload files.", "error");
       return;
@@ -1015,14 +1147,15 @@ export default function DashboardPage() {
     }
   };
 
-  // Move to Trash
+  // Delete Item
   const handleTrashItem = async (item) => {
+    if (!confirm(`Are you sure you want to delete '${item.name}'?`)) return;
     try {
-      await api.delete(`/files/${item.id}`);
+      await api.delete(`/files/${item.id}?permanent=true`);
       fetchItems();
-      showToast(`'${item.name}' moved to Trash.`);
+      showToast(`'${item.name}' deleted.`);
     } catch {
-      showToast("Failed to move item to Trash", "error");
+      showToast("Failed to delete item", "error");
     }
   };
 
@@ -1151,7 +1284,7 @@ export default function DashboardPage() {
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
-      className="min-h-screen bg-slate-50 flex flex-col md:flex-row text-slate-800 font-sans relative"
+      className="h-screen w-full overflow-hidden bg-slate-50 flex flex-col md:flex-row text-slate-800 font-sans relative"
     >
       {/* Toast Notification */}
       {toastMessage && (
@@ -1172,7 +1305,7 @@ export default function DashboardPage() {
       )}
 
       {/* Global Drag Drop Backdrop */}
-      {isDragging && (
+      {isDragging && user?.role !== "admin" && (
         <div className="fixed inset-0 z-50 bg-blue-600/20 backdrop-blur-xs border-4 border-dashed border-blue-500 rounded-2xl m-4 flex flex-col items-center justify-center pointer-events-none">
           <UploadCloud className="h-16 w-16 text-blue-600 animate-bounce mb-3" />
           <h2 className="text-xl font-bold text-blue-900">Drop files anywhere to upload</h2>
@@ -1206,18 +1339,18 @@ export default function DashboardPage() {
       {/* ==================================================================== */}
       {/* SIDEBAR NAVIGATION */}
       {/* ==================================================================== */}
-      <aside className="w-full md:w-64 bg-slate-900 text-slate-300 flex flex-col justify-between p-5 border-r border-slate-800 shrink-0">
+      <aside className="w-full md:w-60 bg-slate-900 text-slate-300 flex flex-col justify-between p-3.5 pb-6 border-r border-slate-800 shrink-0 h-full overflow-y-auto z-20">
         <div>
           {/* Brand Logo */}
-          <Link href="/" className="flex items-center gap-3 mb-6 px-2 group">
-            <div className="h-9 w-9 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-md shadow-blue-500/20 group-hover:scale-105 transition-transform">
-              <ShieldCheck className="h-5 w-5" />
+          <Link href="/" className="flex items-center gap-2.5 mb-4 px-1.5 group">
+            <div className="h-8 w-8 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-md shadow-blue-500/20 group-hover:scale-105 transition-transform">
+              <ShieldCheck className="h-4.5 w-4.5" />
             </div>
             <div className="flex flex-col">
-              <span className="text-lg font-bold tracking-tight text-white leading-tight">
+              <span className="text-base font-bold tracking-tight text-white leading-tight">
                 TrustShare
               </span>
-              <span className="text-[10px] uppercase font-semibold text-emerald-400 tracking-wider flex items-center gap-1.5 mt-0.5">
+              <span className="text-[9px] uppercase font-semibold text-emerald-400 tracking-wider flex items-center gap-1.5 mt-0.5">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
                 AES-256 Vault Online
               </span>
@@ -1225,15 +1358,12 @@ export default function DashboardPage() {
           </Link>
 
           {/* Nav Links */}
-          <nav className="space-y-1 text-sm font-medium">
+          <nav className="space-y-0.5 text-xs font-medium">
             {user.role === "admin" ? (
               <>
                 <div className="px-3 mb-2 flex items-center justify-between">
                   <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
                     ADMIN PANEL
-                  </span>
-                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 font-mono font-bold">
-                    RBAC ACTIVE
                   </span>
                 </div>
 
@@ -1243,13 +1373,13 @@ export default function DashboardPage() {
                     setActiveTab("admin-analytics");
                     setAdminSubTab("overview");
                   }}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition cursor-pointer ${
+                  className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg transition cursor-pointer text-xs ${
                     activeTab === "admin-analytics" && adminSubTab === "overview"
                       ? "bg-blue-600 text-white font-semibold shadow-sm"
                       : "hover:bg-slate-800 text-slate-300 hover:text-white"
                   }`}
                 >
-                  <Grid className="h-4 w-4 text-slate-400" />
+                  <Grid className="h-3.5 w-3.5 text-slate-400" />
                   <span>Dashboard</span>
                 </button>
 
@@ -1260,18 +1390,18 @@ export default function DashboardPage() {
                     setAdminSubTab("users");
                     markBadgeSeen("users");
                   }}
-                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition cursor-pointer ${
+                  className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg transition cursor-pointer text-xs ${
                     activeTab === "admin-analytics" && adminSubTab === "users"
                       ? "bg-blue-600 text-white font-semibold shadow-sm"
                       : "hover:bg-slate-800 text-slate-300 hover:text-white"
                   }`}
                 >
-                  <div className="flex items-center gap-3">
-                    <Users className="h-4 w-4 text-slate-400" />
+                  <div className="flex items-center gap-2.5">
+                    <Users className="h-3.5 w-3.5 text-slate-400" />
                     <span>User Management</span>
                   </div>
                   {!seenBadges.users && adminUsers.length > 0 && (
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-300">
+                    <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-800 text-slate-300">
                       {adminUsers.length}
                     </span>
                   )}
@@ -1284,123 +1414,126 @@ export default function DashboardPage() {
                     setCurrentFolderId(null);
                     markBadgeSeen("files");
                   }}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition cursor-pointer ${
+                  className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg transition cursor-pointer text-xs ${
                     activeTab === "my-vault"
                       ? "bg-blue-600 text-white font-semibold shadow-sm"
                       : "hover:bg-slate-800 text-slate-300 hover:text-white"
                   }`}
                 >
-                  <Folder className="h-4 w-4 text-slate-400" />
+                  <Folder className="h-3.5 w-3.5 text-slate-400" />
                   <span>File Management</span>
                 </button>
 
-                {/* 4. Sharing Reports */}
+                {/* Activity Logs */}
                 <button
                   onClick={() => {
-                    setActiveTab("shared");
-                    setCurrentFolderId(null);
-                    markBadgeSeen("shared");
+                    setActiveTab("admin-activity-logs");
                   }}
-                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition cursor-pointer ${
-                    activeTab === "shared"
+                  className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg transition cursor-pointer text-xs ${
+                    activeTab === "admin-activity-logs"
                       ? "bg-blue-600 text-white font-semibold shadow-sm"
                       : "hover:bg-slate-800 text-slate-300 hover:text-white"
                   }`}
                 >
-                  <div className="flex items-center gap-3">
-                    <Share2 className="h-4 w-4 text-slate-400" />
-                    <span>Sharing Reports</span>
+                  <div className="flex items-center gap-2.5">
+                    <Activity className="h-3.5 w-3.5 text-cyan-400" />
+                    <span>Activity Logs</span>
                   </div>
-                  {!seenBadges.shared && userSharedFilesCount > 0 && (
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-sky-300">
-                      {userSharedFilesCount}
-                    </span>
-                  )}
                 </button>
 
-                {/* 5. Security Dashboard (Highlighted Admin Feature from Image 2 top) */}
+                {/* Audit Logs */}
                 <button
                   onClick={() => {
-                    setActiveTab("admin-security-dashboard");
-                    markBadgeSeen("alerts");
+                    setActiveTab("admin-audit-logs");
                   }}
-                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition cursor-pointer ${
-                    activeTab === "admin-security-dashboard"
-                      ? "bg-blue-600 text-white font-semibold shadow-md shadow-blue-900/30 ring-1 ring-blue-400"
-                      : "hover:bg-slate-800 text-slate-300 hover:text-white"
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <ShieldAlert className="h-4 w-4 text-blue-400" />
-                    <span>Security Dashboard</span>
-                  </div>
-                  {!seenBadges.alerts && securityAlerts.count > 0 && (
-                    <span className="px-1.5 py-0.5 rounded-full bg-rose-600 text-white text-[10px] font-bold animate-pulse">
-                      {securityAlerts.count} alerts
-                    </span>
-                  )}
-                </button>
-
-                {/* 6. Analytics */}
-                <button
-                  onClick={() => {
-                    setActiveTab("admin-analytics");
-                    setAdminSubTab("overview");
-                  }}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition cursor-pointer ${
-                    activeTab === "admin-analytics" && adminSubTab === "overview"
+                  className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg transition cursor-pointer text-xs ${
+                    activeTab === "admin-audit-logs"
                       ? "bg-blue-600 text-white font-semibold shadow-sm"
                       : "hover:bg-slate-800 text-slate-300 hover:text-white"
                   }`}
                 >
-                  <BarChart3 className="h-4 w-4 text-slate-400" />
-                  <span>Analytics</span>
+                  <div className="flex items-center gap-2.5">
+                    <FileCheck className="h-3.5 w-3.5 text-purple-400" />
+                    <span>Audit Logs</span>
+                  </div>
                 </button>
 
-                {/* 7. System Monitoring */}
+                {/* Reports */}
+                <button
+                  onClick={() => {
+                    setActiveTab("admin-reports");
+                  }}
+                  className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg transition cursor-pointer text-xs ${
+                    activeTab === "admin-reports"
+                      ? "bg-blue-600 text-white font-semibold shadow-sm"
+                      : "hover:bg-slate-800 text-slate-300 hover:text-white"
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <FileText className="h-3.5 w-3.5 text-emerald-400" />
+                    <span>Reports</span>
+                  </div>
+                </button>
+
+                {/* Storage Analytics */}
+                <button
+                  onClick={() => {
+                    setActiveTab("admin-storage");
+                  }}
+                  className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg transition cursor-pointer text-xs ${
+                    activeTab === "admin-storage"
+                      ? "bg-blue-600 text-white font-semibold shadow-sm"
+                      : "hover:bg-slate-800 text-slate-300 hover:text-white"
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <HardDrive className="h-3.5 w-3.5 text-blue-400" />
+                    <span>Storage Analytics</span>
+                  </div>
+                </button>
+
+                {/* Security Monitoring */}
+                <button
+                  onClick={() => {
+                    setActiveTab("admin-suspicious-activity");
+                  }}
+                  className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg transition cursor-pointer text-xs ${
+                    activeTab === "admin-suspicious-activity"
+                      ? "bg-blue-600 text-white font-semibold shadow-sm"
+                      : "hover:bg-slate-800 text-slate-300 hover:text-white"
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <ShieldAlert className="h-3.5 w-3.5 text-rose-400" />
+                    <span>Security Monitoring</span>
+                  </div>
+                </button>
+
+                {/* 9. System Monitoring */}
                 <button
                   onClick={() => {
                     setActiveTab("system-monitoring");
                   }}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition cursor-pointer ${
+                  className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg transition cursor-pointer text-xs ${
                     activeTab === "system-monitoring"
                       ? "bg-blue-600 text-white font-semibold shadow-sm"
                       : "hover:bg-slate-800 text-slate-300 hover:text-white"
                   }`}
                 >
-                  <Server className="h-4 w-4 text-slate-400" />
+                  <Server className="h-3.5 w-3.5 text-slate-400" />
                   <span>System Monitoring</span>
                 </button>
 
-                {/* 8. Activity Logs */}
-                <button
-                  onClick={() => {
-                    setActiveTab("admin-analytics");
-                    setAdminSubTab("logs");
-                    fetchAdminLogs();
-                  }}
-                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition cursor-pointer ${
-                    activeTab === "admin-analytics" && adminSubTab === "logs"
-                      ? "bg-blue-600 text-white font-semibold shadow-sm"
-                      : "hover:bg-slate-800 text-slate-300 hover:text-white"
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <Activity className="h-4 w-4 text-slate-400" />
-                    <span>Activity Logs</span>
-                  </div>
-                </button>
-
-                {/* 9. Settings */}
+                {/* 10. Settings */}
                 <button
                   onClick={() => setActiveTab("settings")}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition cursor-pointer ${
+                  className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg transition cursor-pointer text-xs ${
                     activeTab === "settings"
                       ? "bg-blue-600 text-white font-semibold shadow-sm"
                       : "hover:bg-slate-800 text-slate-300 hover:text-white"
                   }`}
                 >
-                  <SettingsIcon className="h-4 w-4 text-slate-400" />
+                  <SettingsIcon className="h-3.5 w-3.5 text-slate-400" />
                   <span>Settings</span>
                 </button>
               </>
@@ -1410,223 +1543,141 @@ export default function DashboardPage() {
                   <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
                     USER PANEL
                   </span>
-                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono font-bold">
-                    AES-256
-                  </span>
                 </div>
 
-                {/* 1. Dashboard */}
+                {/* 1. My Vault */}
                 <button
                   onClick={() => {
                     setActiveTab("my-vault");
                     setCurrentFolderId(null);
-                    markBadgeSeen("files");
                   }}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition cursor-pointer ${
-                    activeTab === "my-vault"
+                  className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg transition cursor-pointer text-xs ${
+                    activeTab === "my-vault" || activeTab === "my-files"
                       ? "bg-blue-600 text-white font-semibold shadow-sm"
-                      : "hover:bg-slate-800 hover:text-white"
+                      : "hover:bg-slate-800 text-slate-300 hover:text-white"
                   }`}
                 >
-                  <Grid className="h-4 w-4 text-slate-400" />
-                  <span>Dashboard</span>
+                  <Folder className="h-3.5 w-3.5 text-slate-400" />
+                  <span>My Vault</span>
                 </button>
 
-                {/* 2. My Files */}
-                <button
-                  onClick={() => {
-                    setActiveTab("my-files");
-                    setCurrentFolderId(null);
-                    markBadgeSeen("files");
-                  }}
-                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition cursor-pointer ${
-                    activeTab === "my-files"
-                      ? "bg-blue-600 text-white font-semibold shadow-sm"
-                      : "hover:bg-slate-800 hover:text-white"
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <Folder className="h-4 w-4 text-slate-400" />
-                    <span>My Files</span>
-                  </div>
-                  {!seenBadges.files && userTotalFiles > 0 && (
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-300">
-                      {userTotalFiles}
-                    </span>
-                  )}
-                </button>
-
-                {/* 3. Shared with Me */}
+                {/* 2. Shared with Me */}
                 <button
                   onClick={() => {
                     setActiveTab("shared-with-me");
                     setCurrentFolderId(null);
-                    markBadgeSeen("shared");
                   }}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition cursor-pointer ${
+                  className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg transition cursor-pointer text-xs ${
                     activeTab === "shared-with-me"
                       ? "bg-blue-600 text-white font-semibold shadow-sm"
-                      : "hover:bg-slate-800 hover:text-white"
+                      : "hover:bg-slate-800 text-slate-300 hover:text-white"
                   }`}
                 >
-                  <Users className="h-4 w-4 text-slate-400" />
+                  <Users className="h-3.5 w-3.5 text-slate-400" />
                   <span>Shared with Me</span>
                 </button>
 
-                {/* 4. Shared by Me */}
+                {/* 3. Shared by Me */}
                 <button
                   onClick={() => {
                     setActiveTab("shared");
                     setCurrentFolderId(null);
-                    markBadgeSeen("shared");
                   }}
-                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition cursor-pointer ${
+                  className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg transition cursor-pointer text-xs ${
                     activeTab === "shared"
                       ? "bg-blue-600 text-white font-semibold shadow-sm"
-                      : "hover:bg-slate-800 hover:text-white"
+                      : "hover:bg-slate-800 text-slate-300 hover:text-white"
                   }`}
                 >
-                  <div className="flex items-center gap-3">
-                    <Share2 className="h-4 w-4 text-sky-400" />
-                    <span>Shared by Me</span>
-                  </div>
-                  {!seenBadges.shared && userSharedFilesCount > 0 && (
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-sky-300 font-semibold">
-                      {userSharedFilesCount}
-                    </span>
-                  )}
+                  <Share2 className="h-3.5 w-3.5 text-sky-400" />
+                  <span>Shared by Me</span>
                 </button>
 
-                {/* 5. Recent */}
+                {/* 4. Recent */}
                 <button
                   onClick={() => {
                     setActiveTab("recent");
                     setCurrentFolderId(null);
                   }}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition cursor-pointer ${
+                  className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg transition cursor-pointer text-xs ${
                     activeTab === "recent"
                       ? "bg-blue-600 text-white font-semibold shadow-sm"
-                      : "hover:bg-slate-800 hover:text-white"
+                      : "hover:bg-slate-800 text-slate-300 hover:text-white"
                   }`}
                 >
-                  <Clock className="h-4 w-4 text-emerald-400" />
+                  <Clock className="h-3.5 w-3.5 text-emerald-400" />
                   <span>Recent</span>
                 </button>
 
-                {/* 6. Favorites */}
+                {/* 5. Favorites */}
                 <button
                   onClick={() => {
                     setActiveTab("starred");
                     setCurrentFolderId(null);
                   }}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition cursor-pointer ${
+                  className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg transition cursor-pointer text-xs ${
                     activeTab === "starred"
                       ? "bg-blue-600 text-white font-semibold shadow-sm"
-                      : "hover:bg-slate-800 hover:text-white"
+                      : "hover:bg-slate-800 text-slate-300 hover:text-white"
                   }`}
                 >
-                  <Star className="h-4 w-4 text-amber-400" />
+                  <Star className="h-3.5 w-3.5 text-amber-400" />
                   <span>Favorites</span>
                 </button>
 
-                {/* 7. Trash */}
-                <button
-                  onClick={() => {
-                    setActiveTab("trash");
-                    setCurrentFolderId(null);
-                  }}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition cursor-pointer ${
-                    activeTab === "trash"
-                      ? "bg-blue-600 text-white font-semibold shadow-sm"
-                      : "hover:bg-slate-800 hover:text-white"
-                  }`}
-                >
-                  <Trash2 className="h-4 w-4 text-rose-400" />
-                  <span>Trash</span>
-                </button>
-
-                {/* 8. Storage */}
-                <button
-                  onClick={() => {
-                    setActiveTab("storage");
-                  }}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition cursor-pointer ${
-                    activeTab === "storage"
-                      ? "bg-blue-600 text-white font-semibold shadow-sm"
-                      : "hover:bg-slate-800 hover:text-white"
-                  }`}
-                >
-                  <HardDrive className="h-4 w-4 text-indigo-400" />
-                  <span>Storage</span>
-                </button>
-
-                {/* 9. File Analytics (Highlighted User Feature from Image 1) */}
+                {/* 6. File Analytics */}
                 <button
                   onClick={() => {
                     setActiveTab("file-analytics");
-                    markBadgeSeen("analytics");
                   }}
-                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition cursor-pointer ${
+                  className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg transition cursor-pointer text-xs ${
                     activeTab === "file-analytics"
-                      ? "bg-blue-600 text-white font-semibold shadow-md shadow-blue-900/30 ring-1 ring-blue-400"
-                      : "hover:bg-slate-800 hover:text-white"
+                      ? "bg-blue-600 text-white font-semibold shadow-sm"
+                      : "hover:bg-slate-800 text-slate-300 hover:text-white"
                   }`}
                 >
-                  <div className="flex items-center gap-3">
-                    <BarChart3 className="h-4 w-4 text-blue-300" />
-                    <span>File Analytics</span>
-                  </div>
-                  {!seenBadges.analytics && (
-                    <span className="h-2 w-2 rounded-full bg-blue-300" />
-                  )}
+                  <BarChart3 className="h-3.5 w-3.5 text-blue-300" />
+                  <span>File Analytics</span>
                 </button>
 
-                {/* 10. Activity Logs */}
+                {/* 7. Activity Logs */}
                 <button
                   onClick={() => setActiveTab("user-activity")}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition cursor-pointer ${
+                  className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg transition cursor-pointer text-xs ${
                     activeTab === "user-activity"
                       ? "bg-blue-600 text-white font-semibold shadow-sm"
-                      : "hover:bg-slate-800 hover:text-white"
+                      : "hover:bg-slate-800 text-slate-300 hover:text-white"
                   }`}
                 >
-                  <Activity className="h-4 w-4 text-cyan-400" />
+                  <Activity className="h-3.5 w-3.5 text-cyan-400" />
                   <span>Activity Logs</span>
                 </button>
 
-                {/* 11. Security (User Security Section from Image 2 bottom) */}
+                {/* 8. Security */}
                 <button
                   onClick={() => {
                     setActiveTab("user-security");
-                    markBadgeSeen("security");
                   }}
-                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition cursor-pointer ${
+                  className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg transition cursor-pointer text-xs ${
                     activeTab === "user-security"
-                      ? "bg-blue-600 text-white font-semibold shadow-md shadow-blue-900/30 ring-1 ring-blue-400"
-                      : "hover:bg-slate-800 hover:text-white"
+                      ? "bg-blue-600 text-white font-semibold shadow-sm"
+                      : "hover:bg-slate-800 text-slate-300 hover:text-white"
                   }`}
                 >
-                  <div className="flex items-center gap-3">
-                    <ShieldCheck className="h-4 w-4 text-emerald-400" />
-                    <span>Security</span>
-                  </div>
-                  {!seenBadges.security && (
-                    <span className="text-[10px] px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 font-bold">
-                      10 Active
-                    </span>
-                  )}
+                  <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
+                  <span>Security</span>
                 </button>
 
-                {/* 12. Settings */}
+                {/* 9. Settings */}
                 <button
                   onClick={() => setActiveTab("settings")}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition cursor-pointer ${
+                  className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg transition cursor-pointer text-xs ${
                     activeTab === "settings"
                       ? "bg-blue-600 text-white font-semibold shadow-sm"
-                      : "hover:bg-slate-800 hover:text-white"
+                      : "hover:bg-slate-800 text-slate-300 hover:text-white"
                   }`}
                 >
-                  <SettingsIcon className="h-4 w-4 text-slate-400" />
+                  <SettingsIcon className="h-3.5 w-3.5 text-slate-400" />
                   <span>Settings</span>
                 </button>
               </>
@@ -1651,7 +1702,7 @@ export default function DashboardPage() {
                       100,
                       Math.max(
                         adminAnalytics?.storage?.total_bytes ? 1 : 0,
-                        Math.round(((adminAnalytics?.storage?.total_bytes || 0) / (1024 ** 4)) * 100)
+                        Math.round(((adminAnalytics?.storage?.total_bytes || 0) / (500 * 1024 * 1024)) * 100)
                       )
                     )}%`
                   }}
@@ -1659,12 +1710,12 @@ export default function DashboardPage() {
               </div>
               <div className="flex items-center justify-between text-[11px] text-slate-400">
                 <span className="font-mono">
-                  {formatBytes(adminAnalytics?.storage?.total_bytes || 0)} / 1 TB
+                  {formatBytes(adminAnalytics?.storage?.total_bytes || 0)} / 500 MB
                 </span>
                 <span className="font-semibold text-slate-300">
                   {Math.min(
                     100,
-                    Math.round(((adminAnalytics?.storage?.total_bytes || 0) / (1024 ** 4)) * 100)
+                    Math.round(((adminAnalytics?.storage?.total_bytes || 0) / (500 * 1024 * 1024)) * 100)
                   )}%
                 </span>
               </div>
@@ -1699,22 +1750,14 @@ export default function DashboardPage() {
                   <p className="text-[10px] text-slate-400">Used Storage</p>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={() => showToast("Storage tier: 500 MB AES-256 encrypted quota active.", "info")}
-                className="w-full mt-3 py-1.5 px-3 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/30 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition cursor-pointer"
-              >
-                <Sparkles className="h-3.5 w-3.5" />
-                <span>Encrypted Tier</span>
-              </button>
             </div>
           )}
 
           <button
             onClick={handleLogout}
-            className="w-full flex items-center gap-2.5 text-xs font-semibold text-slate-400 hover:text-rose-400 px-2 py-2 rounded-lg hover:bg-slate-800/50 transition cursor-pointer"
+            className="w-full flex items-center gap-2 text-xs font-semibold text-slate-400 hover:text-rose-400 px-2 py-1.5 rounded-lg hover:bg-slate-800/50 transition cursor-pointer mb-2"
           >
-            <LogOut className="h-4 w-4" />
+            <LogOut className="h-3.5 w-3.5" />
             <span>Sign Out</span>
           </button>
         </div>
@@ -1723,9 +1766,9 @@ export default function DashboardPage() {
       {/* ==================================================================== */}
       {/* MAIN CONTENT AREA */}
       {/* ==================================================================== */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
         {/* Top Header */}
-        <header className="h-16 bg-white border-b border-slate-200 px-6 flex items-center justify-between gap-4 sticky top-0 z-10">
+        <header className="h-14 bg-white border-b border-slate-200 px-6 flex items-center justify-between gap-4 sticky top-0 z-10 shrink-0">
           {/* Search Box */}
           <div className="relative max-w-md w-full">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -1764,24 +1807,29 @@ export default function DashboardPage() {
               </div>
             )}
 
-            {/* Admin Notifications Bell for Incorrect Logins */}
-            {user.role === "admin" && (
+            {/* Notifications & Security Alerts (All Users) */}
+            {user && (
               <div className="relative">
                 <button
                   type="button"
                   onClick={() => {
                     setShowNotificationsModal(true);
+                    fetchNotifications();
                     markBadgeSeen("alerts");
                   }}
-                  title="Security Alerts & Incorrect Logins"
+                  title="Notifications & Activity Alerts"
                   className="relative p-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition cursor-pointer border border-slate-200"
                 >
                   <Bell className="h-4 w-4" />
-                  {!seenBadges.alerts && securityAlerts.count > 0 && (
+                  {unreadNotificationsCount > 0 ? (
+                    <span className="absolute -top-1 -right-1 h-5 min-w-[20px] px-1 bg-blue-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center animate-pulse">
+                      {unreadNotificationsCount}
+                    </span>
+                  ) : (!seenBadges.alerts && securityAlerts.count > 0) ? (
                     <span className="absolute -top-1 -right-1 h-5 min-w-[20px] px-1 bg-rose-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center animate-pulse">
                       {securityAlerts.count}
                     </span>
-                  )}
+                  ) : null}
                 </button>
               </div>
             )}
@@ -1795,6 +1843,20 @@ export default function DashboardPage() {
               className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition cursor-pointer"
             >
               <RefreshCw className="h-4 w-4" />
+            </button>
+
+            {/* Theme Toggle (Light / Dark Mode) */}
+            <button
+              type="button"
+              onClick={toggleTheme}
+              title={theme === "dark" ? "Switch to Light Theme" : "Switch to Dark Theme"}
+              className="p-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition cursor-pointer border border-slate-200"
+            >
+              {theme === "dark" ? (
+                <Sun className="h-4 w-4 text-amber-500" />
+              ) : (
+                <Moon className="h-4 w-4 text-slate-600" />
+              )}
             </button>
 
             <div className="h-8 w-px bg-slate-200" />
@@ -1823,6 +1885,19 @@ export default function DashboardPage() {
                 <p className="text-slate-400 font-mono text-[11px]">{user.email}</p>
               </div>
             </div>
+
+            <div className="h-8 w-px bg-slate-200" />
+
+            {/* Direct Header Sign Out Button (Always visible for User & Admin) */}
+            <button
+              type="button"
+              onClick={handleLogout}
+              title="Sign Out of TrustShare"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-rose-600 hover:text-white bg-rose-50 hover:bg-rose-600 border border-rose-200 hover:border-rose-600 transition cursor-pointer shadow-2xs"
+            >
+              <LogOut className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Sign Out</span>
+            </button>
           </div>
         </header>
 
@@ -1899,6 +1974,134 @@ export default function DashboardPage() {
           </main>
         )}
 
+        {/* Activity Logs & Monitoring Stream */}
+        {activeTab === "admin-activity-logs" && (
+          <main className="flex-1 flex flex-col overflow-hidden">
+            {user?.role !== "admin" ? (
+              <div className="p-8 max-w-lg mx-auto bg-rose-50 border border-rose-200 rounded-2xl text-center my-12 shadow-xs">
+                <ShieldAlert className="h-12 w-12 text-rose-600 mx-auto mb-3" />
+                <h3 className="text-lg font-bold text-rose-900">403 Forbidden - Access Denied</h3>
+                <p className="text-sm text-rose-700 mt-2">
+                  Administrator privileges are strictly required to view the real-time activity monitoring stream.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("my-vault")}
+                  className="mt-4 px-4 py-2 bg-rose-600 text-white rounded-xl text-xs font-semibold hover:bg-rose-700 transition cursor-pointer"
+                >
+                  Return to Vault
+                </button>
+              </div>
+            ) : (
+              <AdminActivityLogsDashboard showToast={showToast} />
+            )}
+          </main>
+        )}
+
+        {/* Audit Logs & Compliance Journal */}
+        {activeTab === "admin-audit-logs" && (
+          <main className="flex-1 flex flex-col overflow-hidden">
+            {user?.role !== "admin" ? (
+              <div className="p-8 max-w-lg mx-auto bg-rose-50 border border-rose-200 rounded-2xl text-center my-12 shadow-xs">
+                <ShieldAlert className="h-12 w-12 text-rose-600 mx-auto mb-3" />
+                <h3 className="text-lg font-bold text-rose-900">403 Forbidden - Access Denied</h3>
+                <p className="text-sm text-rose-700 mt-2">
+                  Administrator privileges are strictly required to view the cryptographic audit logs journal.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("my-vault")}
+                  className="mt-4 px-4 py-2 bg-rose-600 text-white rounded-xl text-xs font-semibold hover:bg-rose-700 transition cursor-pointer"
+                >
+                  Return to Vault
+                </button>
+              </div>
+            ) : (
+              <AdminAuditLogsDashboard showToast={showToast} />
+            )}
+          </main>
+        )}
+
+        {/* File Activity & Security Reports */}
+        {activeTab === "admin-reports" && (
+          <main className="p-6 md:p-8 space-y-6 flex-1 overflow-y-auto bg-slate-50">
+            {user?.role !== "admin" ? (
+              <div className="p-8 max-w-lg mx-auto bg-rose-50 border border-rose-200 rounded-2xl text-center my-12 shadow-xs">
+                <ShieldAlert className="h-12 w-12 text-rose-600 mx-auto mb-3" />
+                <h3 className="text-lg font-bold text-rose-900">403 Forbidden - Access Denied</h3>
+                <p className="text-sm text-rose-700 mt-2">
+                  Administrator privileges are strictly required to view and export file activity & security reports.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("my-vault")}
+                  className="mt-4 px-4 py-2 bg-rose-600 text-white rounded-xl text-xs font-semibold hover:bg-rose-700 transition cursor-pointer"
+                >
+                  Return to Vault
+                </button>
+              </div>
+            ) : (
+              <AdminReportsDashboard
+                formatBytes={formatBytes}
+                showToast={showToast}
+              />
+            )}
+          </main>
+        )}
+
+        {/* Storage Analytics & Monitoring */}
+        {activeTab === "admin-storage" && (
+          <main className="p-6 md:p-8 space-y-6 flex-1 overflow-y-auto bg-slate-50">
+            {user?.role !== "admin" ? (
+              <div className="p-8 max-w-lg mx-auto bg-rose-50 border border-rose-200 rounded-2xl text-center my-12 shadow-xs">
+                <ShieldAlert className="h-12 w-12 text-rose-600 mx-auto mb-3" />
+                <h3 className="text-lg font-bold text-rose-900">403 Forbidden - Access Denied</h3>
+                <p className="text-sm text-rose-700 mt-2">
+                  Administrator privileges are strictly required to view the storage analytics dashboard.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("my-vault")}
+                  className="mt-4 px-4 py-2 bg-rose-600 text-white rounded-xl text-xs font-semibold hover:bg-rose-700 transition cursor-pointer"
+                >
+                  Return to Vault
+                </button>
+              </div>
+            ) : (
+              <AdminStorageAnalyticsDashboard
+                formatBytes={formatBytes}
+                showToast={showToast}
+              />
+            )}
+          </main>
+        )}
+
+        {/* Suspicious Activity Detection & Incident Monitor */}
+        {activeTab === "admin-suspicious-activity" && (
+          <main className="p-6 md:p-8 space-y-6 flex-1 overflow-y-auto bg-slate-50">
+            {user?.role !== "admin" ? (
+              <div className="p-8 max-w-lg mx-auto bg-rose-50 border border-rose-200 rounded-2xl text-center my-12 shadow-xs">
+                <ShieldAlert className="h-12 w-12 text-rose-600 mx-auto mb-3" />
+                <h3 className="text-lg font-bold text-rose-900">403 Forbidden - Access Denied</h3>
+                <p className="text-sm text-rose-700 mt-2">
+                  Administrator privileges are strictly required to view suspicious activity detection and threat monitoring.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("my-vault")}
+                  className="mt-4 px-4 py-2 bg-rose-600 text-white rounded-xl text-xs font-semibold hover:bg-rose-700 transition cursor-pointer"
+                >
+                  Return to Vault
+                </button>
+              </div>
+            ) : (
+              <AdminSuspiciousActivityDashboard
+                showToast={showToast}
+              />
+            )}
+          </main>
+        )}
+
         {/* ================================================================== */}
         {/* VIEW 0D: USER SETTINGS & PROFILE EDIT */}
         {/* ================================================================== */}
@@ -1914,6 +2117,7 @@ export default function DashboardPage() {
                   console.error("Failed to update user in localStorage", e);
                 }
               }}
+              onThemeUpdated={(newTheme) => setTheme(newTheme)}
             />
           </main>
         )}
@@ -1926,8 +2130,8 @@ export default function DashboardPage() {
             {/* Clean Admin Header */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
-                <h1 className="text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
-                  <Activity className="h-6 w-6 text-purple-600" />
+                <h1 className="text-xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
+                  <Activity className="h-5 w-5 text-purple-600" />
                   <span>Admin Analytics</span>
                 </h1>
                 <p className="text-xs text-slate-500 mt-0.5">
@@ -2005,7 +2209,7 @@ export default function DashboardPage() {
                             <Users className="h-4 w-4" />
                           </div>
                         </div>
-                        <p className="text-2xl font-bold text-slate-900">{adminAnalytics.users.total}</p>
+                        <p className="text-lg font-bold text-slate-900">{adminAnalytics.users.total}</p>
                         <div className="mt-2 flex items-center gap-2 text-xs text-slate-500">
                           <span className="text-emerald-600 font-semibold">{adminAnalytics.users.active} Active</span>
                           <span>•</span>
@@ -2025,7 +2229,7 @@ export default function DashboardPage() {
                             <HardDrive className="h-4 w-4" />
                           </div>
                         </div>
-                        <p className="text-2xl font-bold text-slate-900">
+                        <p className="text-lg font-bold text-slate-900">
                           {formatBytes(adminAnalytics.storage.total_bytes)}
                         </p>
                         <p className="mt-2 text-xs text-slate-500">
@@ -2043,7 +2247,7 @@ export default function DashboardPage() {
                             <Lock className="h-4 w-4" />
                           </div>
                         </div>
-                        <p className="text-2xl font-bold text-slate-900">
+                        <p className="text-lg font-bold text-slate-900">
                           {adminAnalytics.storage.password_protected_files}
                         </p>
                         <p className="mt-2 text-xs text-slate-500">
@@ -2061,7 +2265,7 @@ export default function DashboardPage() {
                             <Activity className="h-4 w-4" />
                           </div>
                         </div>
-                        <p className="text-2xl font-bold text-slate-900">
+                        <p className="text-lg font-bold text-slate-900">
                           {adminAnalytics.total_audit_events}
                         </p>
                         <p className="mt-2 text-xs text-slate-500">
@@ -2466,7 +2670,7 @@ export default function DashboardPage() {
                           Total Telemetry Events
                         </span>
                         <div className="flex items-baseline gap-2 mt-1">
-                          <span className="text-xl font-bold text-slate-900">{adminLogsTotal || adminLogs.length}</span>
+                          <span className="text-base font-bold text-slate-900">{adminLogsTotal || adminLogs.length}</span>
                           <span className="text-[11px] text-slate-500 font-medium">in window</span>
                         </div>
                       </div>
@@ -2476,7 +2680,7 @@ export default function DashboardPage() {
                           Document & File Actions
                         </span>
                         <div className="flex items-baseline gap-2 mt-1">
-                          <span className="text-xl font-bold text-slate-900">
+                          <span className="text-base font-bold text-slate-900">
                             {(adminLogsActionCounts["FILE_UPLOAD"] || 0) +
                               (adminLogsActionCounts["FILE_DOWNLOAD"] || 0) +
                               (adminLogsActionCounts["FILE_DELETED"] || 0) +
@@ -2491,7 +2695,7 @@ export default function DashboardPage() {
                           Authentication Events
                         </span>
                         <div className="flex items-baseline gap-2 mt-1">
-                          <span className="text-xl font-bold text-slate-900">
+                          <span className="text-base font-bold text-slate-900">
                             {(adminLogsActionCounts["LOGIN_SUCCESS"] || 0) +
                               (adminLogsActionCounts["LOGIN_FAILED"] || 0) +
                               (adminLogsActionCounts["OAUTH_LOGIN"] || 0)}
@@ -2737,6 +2941,11 @@ export default function DashboardPage() {
         {![
           "admin-analytics",
           "admin-security-dashboard",
+          "admin-reports",
+          "admin-storage",
+          "admin-suspicious-activity",
+          "admin-activity-logs",
+          "admin-audit-logs",
           "system-monitoring",
           "settings",
           "file-analytics",
@@ -2764,7 +2973,7 @@ export default function DashboardPage() {
                   ))}
                 </div>
 
-                <h1 className="text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
+                <h1 className="text-xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
                   <span>
                     {activeTab === "starred" || activeTab === "favorites"
                       ? "Favorites & Starred"
@@ -2780,7 +2989,9 @@ export default function DashboardPage() {
                       ? "My Files"
                       : currentFolderDetails
                       ? currentFolderDetails.name
-                      : "Encrypted Workspace"}
+                      : user?.role === "admin"
+                      ? "File Management"
+                      : "My Vault"}
                   </span>
                   {currentFolderDetails?.is_password_protected && (
                     <span className="p-1 rounded-md bg-amber-50 text-amber-700 border border-amber-200" title="Password Protected Folder">
@@ -2801,13 +3012,15 @@ export default function DashboardPage() {
                     ? "Items in trash can be restored or permanently expunged"
                     : activeTab === "my-files"
                     ? "Complete enterprise file explorer with folder hierarchies and AES-256 protection"
+                    : user?.role === "admin"
+                    ? "Private Admin Vault: Zero-Knowledge policy ensures administrators cannot access regular users' private files."
                     : "Google Drive-style encrypted document vault with folder-wise hierarchy & password permissions"}
                 </p>
               </div>
 
               {/* Contextual Action Buttons */}
               <div className="flex items-center gap-2">
-                {(activeTab === "my-vault" || activeTab === "my-files") && (
+                {(activeTab === "my-vault" || activeTab === "my-files") && user?.role !== "admin" && (
                   <>
                     <button
                       type="button"
@@ -2850,7 +3063,7 @@ export default function DashboardPage() {
                   <FileText className="h-4 w-4 text-blue-600" />
                 </div>
                 <div className="mt-1 flex items-baseline gap-1.5">
-                  <span className="text-xl font-bold text-slate-900">
+                  <span className="text-base font-bold text-slate-900">
                     {userTotalFiles || items.filter((i) => !i.is_folder).length}
                   </span>
                   <span className="text-xs text-slate-500">
@@ -2866,7 +3079,7 @@ export default function DashboardPage() {
                   <HardDrive className="h-4 w-4 text-emerald-600" />
                 </div>
                 <div className="mt-1 flex items-baseline gap-1.5">
-                  <span className="text-xl font-bold text-slate-900">
+                  <span className="text-base font-bold text-slate-900">
                     {formatBytes(userStorageBytes)}
                   </span>
                   <span className="text-[11px] text-slate-400 font-mono">
@@ -2875,7 +3088,7 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              {/* Card 3: Real Shared Documents Count (Milestone 2 User Request) */}
+              {/* Card 3: Real Shared Documents Count */}
               <button
                 type="button"
                 onClick={() => {
@@ -2893,7 +3106,7 @@ export default function DashboardPage() {
                   <Share2 className="h-4 w-4 text-sky-500" />
                 </div>
                 <div className="mt-1 flex items-baseline gap-1.5">
-                  <span className="text-xl font-bold text-sky-600">
+                  <span className="text-base font-bold text-sky-600">
                     {userSharedFilesCount}
                   </span>
                   <span className="text-xs text-sky-700 font-medium">Active Secure Shares</span>
@@ -2907,7 +3120,7 @@ export default function DashboardPage() {
                   <Lock className="h-4 w-4 text-amber-600" />
                 </div>
                 <div className="mt-1 flex items-baseline gap-1.5">
-                  <span className="text-xl font-bold text-slate-900">
+                  <span className="text-base font-bold text-slate-900">
                     {items.filter((i) => i.is_password_protected).length}
                   </span>
                   <span className="text-xs text-amber-700 font-medium">Locked Assets</span>
@@ -2921,7 +3134,7 @@ export default function DashboardPage() {
                   <Star className="h-4 w-4 text-amber-500 fill-amber-500/20" />
                 </div>
                 <div className="mt-1 flex items-baseline gap-1.5">
-                  <span className="text-xl font-bold text-slate-900">
+                  <span className="text-base font-bold text-slate-900">
                     {items.filter((i) => i.is_starred).length}
                   </span>
                   <span className="text-xs text-slate-500">Favorites</span>
@@ -3084,8 +3297,19 @@ export default function DashboardPage() {
                     Items you delete from your vault will appear here. You can restore them or permanently expunge them.
                   </p>
                 </div>
+              ) : user?.role === "admin" ? (
+                /* Admin File Governance Empty State (No Upload Button) */
+                <div className="border border-slate-200 rounded-2xl p-12 text-center bg-white shadow-2xs">
+                  <Folder className="h-12 w-12 text-slate-300 mx-auto mb-3" />
+                  <h3 className="text-base font-semibold text-slate-800">
+                    No Administrative Files
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-1 max-w-md mx-auto">
+                    In compliance with TrustShare&apos;s zero-knowledge security architecture, standard user files are strictly encrypted and private to their respective owners. File uploads are performed by regular users.
+                  </p>
+                </div>
               ) : (
-                /* Empty Dropzone State ONLY for My Vault & Folders */
+                /* Empty Dropzone State ONLY for Standard Users */
                 <div
                   onClick={() => fileInputRef.current?.click()}
                   className="border-2 border-dashed border-slate-200 rounded-2xl p-12 text-center hover:border-blue-400 bg-white/60 transition cursor-pointer"
@@ -3461,7 +3685,7 @@ export default function DashboardPage() {
           <main className="p-6 md:p-8 space-y-6 flex-1 overflow-y-auto">
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
               <div>
-                <h1 className="text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
+                <h1 className="text-xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
                   <Activity className="h-6 w-6 text-cyan-600" />
                   <span>Activity Log</span>
                 </h1>
@@ -3723,7 +3947,7 @@ export default function DashboardPage() {
       {/* ==================================================================== */}
       {/* MODAL 1: FILE UPLOAD MODAL */}
       {/* ==================================================================== */}
-      {showUploadModal && (
+      {showUploadModal && user?.role !== "admin" && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200">
             <div className="flex items-center justify-between mb-4">
@@ -3883,7 +4107,7 @@ export default function DashboardPage() {
       {/* ==================================================================== */}
       {/* MODAL 2: CREATE FOLDER MODAL */}
       {/* ==================================================================== */}
-      {showFolderModal && (
+      {showFolderModal && user?.role !== "admin" && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200">
             <div className="flex items-center justify-between mb-4">
@@ -3979,7 +4203,7 @@ export default function DashboardPage() {
               </div>
               <h3 className="font-bold text-slate-900 text-base">Enter Access Password</h3>
               <p className="text-xs text-slate-500 mt-1">
-                '{passwordModal.item?.name}' is password protected.
+                &apos;{passwordModal.item?.name}&apos; is password protected.
               </p>
             </div>
 
@@ -4173,9 +4397,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* ==================================================================== */}
-      {/* MODAL 6: MILESTONE 2 ENCRYPTED SECURE SHARING & GUEST PASSWORD MODAL */}
-      {/* ==================================================================== */}
+      {/* Encrypted Secure Sharing Modal */}
       {shareModalItem && (
         <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 my-8 max-h-[90vh] flex flex-col">
@@ -4186,7 +4408,7 @@ export default function DashboardPage() {
                   <Share2 className="h-5 w-5" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-slate-900 text-base">Milestone 2: Secure Sharing</h3>
+                  <h3 className="font-bold text-slate-900 text-base">Secure Document Sharing</h3>
                   <p className="text-xs text-slate-500">AES-256 Envelope Encryption & Guest Passcode Gateway</p>
                 </div>
               </div>
@@ -4458,118 +4680,293 @@ export default function DashboardPage() {
               </div>
 
               {/* Active Shares List for this item */}
-              {shareConfig.existingShares.length > 0 && (
-                <div className="pt-3 border-t border-slate-200 space-y-2">
-                  <div className="flex items-center justify-between text-xs font-bold text-slate-700">
-                    <span>Active Share Links ({shareConfig.existingShares.length})</span>
-                    <span className="text-[10px] text-slate-400 font-normal">Manage & Revoke Grants</span>
-                  </div>
+              {(() => {
+                const activeShares = (shareConfig.existingShares || []).filter(
+                  (s) => s.is_active !== false && !s.is_expired && !s.is_exhausted
+                );
+                const inactiveShares = (shareConfig.existingShares || []).filter(
+                  (s) => s.is_active === false || s.is_expired || s.is_exhausted
+                );
 
-                  <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
-                    {shareConfig.existingShares.map((s) => (
-                      <div
-                        key={s.id}
-                        className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between text-xs"
-                      >
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2 font-mono text-[11px] text-slate-800">
-                            <span className="truncate max-w-[180px]">{s.share_url}</span>
-                            {/* Explicit Link Status Badge (Milestone 2 Task 6) */}
-                            {!s.is_active ? (
-                              <span className="px-1.5 py-0.5 rounded bg-slate-200 text-slate-700 text-[9px] font-bold">
-                                Revoked
-                              </span>
-                            ) : s.is_expired ? (
-                              <span className="px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 text-[9px] font-bold">
-                                Expired
-                              </span>
-                            ) : s.is_exhausted ? (
-                              <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 text-[9px] font-bold">
-                                Exhausted
-                              </span>
-                            ) : (
-                              <span className="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[9px] font-bold">
-                                Active
-                              </span>
-                            )}
-                            {s.has_guest_password && (
-                              <span className="px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 text-[9px] font-bold">
-                                Guest Passcode
-                              </span>
-                            )}
-                            <span className="px-1.5 py-0.2 rounded bg-slate-200 text-slate-700 text-[9px] capitalize">
-                              {s.permission}
-                            </span>
-                          </div>
-                          <div className="text-[10px] text-slate-400 mt-0.5 flex items-center gap-2">
-                            <span>Downloads: {s.downloads_count}{s.max_downloads ? `/${s.max_downloads}` : ""}</span>
-                            <span>•</span>
-                            <span>{s.expires_at ? `Expires ${new Date(s.expires_at).toLocaleDateString()}` : "No expiry"}</span>
-                          </div>
+                if (shareConfig.existingShares.length === 0) return null;
+
+                return (
+                  <div className="pt-3 border-t border-slate-200 dark:border-slate-800 space-y-3">
+                    {/* Active Links Section */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-300">
+                        <span>Active Share Links ({activeShares.length})</span>
+                        <span className="text-[10px] text-slate-400 font-normal">Active Guest Access Grants</span>
+                      </div>
+
+                      {activeShares.length === 0 ? (
+                        <p className="text-[11px] text-slate-400 italic py-1">
+                          No active share links. Generate a new link above to share this file.
+                        </p>
+                      ) : (
+                        <div className="space-y-2 max-h-36 overflow-y-auto pr-1">
+                          {activeShares.map((s) => (
+                            <div
+                              key={s.id}
+                              className="p-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl flex items-center justify-between text-xs"
+                            >
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2 font-mono text-[11px] text-slate-800 dark:text-slate-200">
+                                  <span className="truncate max-w-[180px]">{s.share_url}</span>
+                                  <span className="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 text-[9px] font-bold">
+                                    Active
+                                  </span>
+                                  {s.has_guest_password && (
+                                    <span className="px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 text-[9px] font-bold">
+                                      Guest Passcode
+                                    </span>
+                                  )}
+                                  <span className="px-1.5 py-0.2 rounded bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-[9px] capitalize">
+                                    {s.permission}
+                                  </span>
+                                </div>
+                                <div className="text-[10px] text-slate-400 mt-0.5 flex items-center gap-2">
+                                  <span>Downloads: {s.downloads_count}{s.max_downloads ? `/${s.max_downloads}` : ""}</span>
+                                  <span>•</span>
+                                  <span>{s.expires_at ? `Expires ${new Date(s.expires_at).toLocaleDateString()}` : "No expiry"}</span>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-1 shrink-0 ml-2">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const full = `${window.location.origin}${s.share_url}`;
+                                    navigator.clipboard.writeText(full);
+                                    showToast("Share link copied to clipboard!", "success");
+                                  }}
+                                  className="p-1 hover:bg-slate-200 dark:hover:bg-slate-800 rounded text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition cursor-pointer"
+                                  title="Copy Link"
+                                >
+                                  <Copy className="h-3.5 w-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRevokeShare(s.id)}
+                                  className="px-2 py-1 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-400 rounded text-[10px] font-bold transition cursor-pointer"
+                                >
+                                  Revoke
+                                </button>
+                              </div>
+                            </div>
+                          ))}
                         </div>
+                      )}
+                    </div>
 
-                        <div className="flex items-center gap-1 shrink-0 ml-2">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const full = `${window.location.origin}${s.share_url}`;
-                              navigator.clipboard.writeText(full);
-                              showToast("Share link copied to clipboard!", "success");
-                            }}
-                            className="p-1 hover:bg-slate-200 rounded text-slate-500 hover:text-slate-800 transition cursor-pointer"
-                            title="Copy Link"
-                          >
-                            <Copy className="h-3.5 w-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleRevokeShare(s.id)}
-                            className="px-2 py-1 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded text-[10px] font-bold transition cursor-pointer"
-                          >
-                            Revoke
-                          </button>
+                    {/* Revoked & Inactive Links Section */}
+                    {inactiveShares.length > 0 && (
+                      <div className="space-y-1.5 pt-2 border-t border-slate-100 dark:border-slate-800">
+                        <div className="flex items-center justify-between text-xs font-bold text-slate-500">
+                          <span>Revoked & Inactive Links ({inactiveShares.length})</span>
+                          <span className="text-[10px] text-slate-400 font-normal">Access Terminated</span>
+                        </div>
+                        <div className="space-y-1.5 max-h-28 overflow-y-auto pr-1">
+                          {inactiveShares.map((s) => (
+                            <div
+                              key={s.id}
+                              className="p-2 bg-slate-100/60 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-lg flex items-center justify-between text-xs opacity-75"
+                            >
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2 font-mono text-[11px] text-slate-500 line-through">
+                                  <span className="truncate max-w-[180px]">{s.share_url}</span>
+                                  <span className="px-1.5 py-0.5 rounded bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-400 text-[9px] font-bold no-underline">
+                                    {!s.is_active ? "Revoked" : s.is_expired ? "Expired" : "Exhausted"}
+                                  </span>
+                                </div>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteSharePermanent(s.id)}
+                                title="Delete link record completely"
+                                className="px-2 py-0.5 bg-slate-200 hover:bg-rose-100 dark:bg-slate-800 dark:hover:bg-rose-950/60 text-slate-600 hover:text-rose-600 dark:text-slate-400 dark:hover:text-rose-400 rounded text-[10px] font-medium transition cursor-pointer"
+                              >
+                                Clear
+                              </button>
+                            </div>
+                          ))}
                         </div>
                       </div>
-                    ))}
+                    )}
                   </div>
-                </div>
-              )}
+                );
+              })()}
             </div>
           </div>
         </div>
       )}
 
-      {/* ==================================================================== */}
-      {/* MODAL 7: SECURITY NOTIFICATIONS MODAL (INCORRECT LOGIN ALERTS) */}
-      {/* ==================================================================== */}
+      {/* Notifications & Security Alerts Modal */}
       {showNotificationsModal && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95">
+          <div className="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95">
             <div className="flex items-center justify-between pb-4 border-b border-slate-100">
               <div className="flex items-center gap-2.5">
-                <div className="p-2.5 bg-rose-100 text-rose-600 rounded-xl">
-                  <ShieldAlert className="h-5 w-5" />
+                <div className="p-2.5 bg-blue-100 text-blue-600 rounded-xl relative">
+                  <Bell className="h-5 w-5" />
+                  {unreadNotificationsCount > 0 && (
+                    <span className="absolute -top-1 -right-1 h-3.5 w-3.5 bg-rose-500 rounded-full border-2 border-white" />
+                  )}
                 </div>
                 <div>
-                  <h3 className="font-bold text-slate-900 text-base">Security Notifications</h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-bold text-slate-900 text-base">Notifications & Security Alerts</h3>
+                    {unreadNotificationsCount > 0 && (
+                      <span className="px-2 py-0.5 text-[10px] font-bold bg-blue-100 text-blue-700 rounded-full">
+                        {unreadNotificationsCount} unread
+                      </span>
+                    )}
+                  </div>
                   <p className="text-xs text-slate-500">
-                    Failed authentication attempts & incorrect login alerts
+                    File sharing, download activities, link expirations & security events
                   </p>
                 </div>
               </div>
-              <button
-                onClick={() => {
-                  setShowNotificationsModal(false);
-                  markBadgeSeen("alerts");
-                }}
-                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg cursor-pointer"
-              >
-                <X className="h-5 w-5" />
-              </button>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={fetchNotifications}
+                  title="Refresh Notifications"
+                  className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer transition"
+                >
+                  <RefreshCw className={`h-4 w-4 ${loadingNotifications ? "animate-spin text-blue-600" : ""}`} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowNotificationsModal(false);
+                    markBadgeSeen("alerts");
+                  }}
+                  className="text-slate-400 hover:text-slate-600 p-1.5 hover:bg-slate-100 rounded-lg cursor-pointer transition"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
             </div>
 
-            <div className="my-4 max-h-80 overflow-y-auto space-y-2.5 pr-1">
-              {securityAlerts.list.length > 0 ? (
+            {/* Quick Actions Bar */}
+            <div className="py-2.5 px-1 flex items-center justify-between text-xs border-b border-slate-100 text-slate-500">
+              <span>{notificationsList.length} total event{notificationsList.length === 1 ? "" : "s"}</span>
+              <div className="flex items-center gap-3">
+                {unreadNotificationsCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => handleMarkNotificationRead(null, true)}
+                    className="text-blue-600 hover:text-blue-800 font-semibold cursor-pointer transition flex items-center gap-1"
+                  >
+                    <Check className="h-3.5 w-3.5" />
+                    Mark all read
+                  </button>
+                )}
+                {notificationsList.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleClearNotifications}
+                    className="text-slate-500 hover:text-rose-600 font-semibold cursor-pointer transition flex items-center gap-1"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Clear all
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="my-3 max-h-96 overflow-y-auto space-y-2.5 pr-1">
+              {notificationsList.length > 0 ? (
+                notificationsList.map((notif) => {
+                  const isUnread = !notif.is_read;
+                  const type = notif.notification_type || "system";
+                  
+                  // Style & Icon mapping
+                  let icon = <Bell className="h-4 w-4 text-blue-600" />;
+                  let badgeBg = "bg-blue-50 text-blue-700 border-blue-200";
+                  let itemBorder = isUnread ? "border-blue-200 bg-blue-50/30" : "border-slate-200/80 bg-white";
+
+                  if (type === "security_alert") {
+                    icon = <ShieldAlert className="h-4 w-4 text-rose-600" />;
+                    badgeBg = "bg-rose-50 text-rose-700 border-rose-200";
+                    itemBorder = isUnread ? "border-rose-300 bg-rose-50/40" : "border-rose-100 bg-white";
+                  } else if (type === "file_share") {
+                    icon = <Share2 className="h-4 w-4 text-indigo-600" />;
+                    badgeBg = "bg-indigo-50 text-indigo-700 border-indigo-200";
+                    itemBorder = isUnread ? "border-indigo-200 bg-indigo-50/30" : "border-slate-200/80 bg-white";
+                  } else if (type === "file_download") {
+                    icon = <Download className="h-4 w-4 text-emerald-600" />;
+                    badgeBg = "bg-emerald-50 text-emerald-700 border-emerald-200";
+                    itemBorder = isUnread ? "border-emerald-200 bg-emerald-50/30" : "border-slate-200/80 bg-white";
+                  } else if (type === "link_expiration") {
+                    icon = <Clock className="h-4 w-4 text-amber-600" />;
+                    badgeBg = "bg-amber-50 text-amber-700 border-amber-200";
+                    itemBorder = isUnread ? "border-amber-200 bg-amber-50/30" : "border-slate-200/80 bg-white";
+                  }
+
+                  const notifId = notif.notification_id || notif._id || notif.id;
+
+                  return (
+                    <div
+                      key={notifId || Math.random()}
+                      className={`p-3.5 border rounded-xl text-xs space-y-1.5 transition ${itemBorder}`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <div className="p-1.5 rounded-lg bg-white shadow-xs border border-slate-100">
+                            {icon}
+                          </div>
+                          <div>
+                            <span className="font-bold text-slate-900 block">
+                              {notif.notification_title || "Notification"}
+                            </span>
+                            <span className="font-mono text-[10px] text-slate-400">
+                              {new Date(notif.created_at || notif.date_and_time || Date.now()).toLocaleString()}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <span className={`px-2 py-0.5 text-[10px] font-semibold rounded-md border ${badgeBg}`}>
+                            {type.replace("_", " ").toUpperCase()}
+                          </span>
+                          {isUnread && (
+                            <button
+                              type="button"
+                              onClick={() => handleMarkNotificationRead(notifId)}
+                              title="Mark as read"
+                              className="p-1 hover:bg-slate-200/70 text-slate-400 hover:text-blue-600 rounded cursor-pointer transition"
+                            >
+                              <Check className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      <p className="text-[12px] text-slate-700 pt-0.5 leading-relaxed">
+                        {notif.notification_message}
+                      </p>
+
+                      {/* Optional Target Link */}
+                      {notif.target_url && (
+                        <div className="pt-1">
+                          <a
+                            href={notif.target_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-600 hover:text-blue-800 underline"
+                          >
+                            <span>Open Link</span>
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              ) : securityAlerts.list.length > 0 ? (
+                // Fallback to legacy securityAlerts list if present
                 securityAlerts.list.map((alert) => (
                   <div
                     key={alert.id}
@@ -4602,10 +4999,12 @@ export default function DashboardPage() {
                   </div>
                 ))
               ) : (
-                <div className="py-8 text-center text-slate-400 text-xs">
-                  <CheckCircle2 className="h-8 w-8 text-emerald-500 mx-auto mb-2" />
-                  <p className="font-semibold text-slate-700">No security alerts</p>
-                  <p className="text-slate-400 mt-0.5">All recent login attempts are clean and authorized.</p>
+                <div className="py-10 text-center text-slate-400 text-xs">
+                  <CheckCircle2 className="h-9 w-9 text-emerald-500 mx-auto mb-2" />
+                  <p className="font-semibold text-slate-700">No notifications</p>
+                  <p className="text-slate-400 mt-0.5">
+                    You&apos;re all caught up! No pending file shares, downloads, or security alerts.
+                  </p>
                 </div>
               )}
             </div>
@@ -4622,9 +5021,9 @@ export default function DashboardPage() {
                     setActiveTab("user-activity");
                   }
                 }}
-                className="text-xs font-semibold text-purple-600 hover:text-purple-800 flex items-center gap-1 cursor-pointer"
+                className="text-xs font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1 cursor-pointer"
               >
-                <span>Inspect in {user?.role === "admin" ? "Security Dashboard" : "Activity Log"}</span>
+                <span>View in {user?.role === "admin" ? "Security Dashboard" : "Activity Log"}</span>
                 <ChevronRight className="h-3.5 w-3.5" />
               </button>
 
@@ -4632,14 +5031,13 @@ export default function DashboardPage() {
                 <button
                   type="button"
                   onClick={() => {
+                    handleClearNotifications();
                     markBadgeSeen("alerts");
                     setSecurityAlerts({ count: 0, list: [] });
-                    setShowNotificationsModal(false);
-                    showToast("Security notifications cleared and marked as seen.", "success");
                   }}
                   className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition cursor-pointer"
                 >
-                  Clear & Mark Seen
+                  Clear All
                 </button>
                 <button
                   type="button"

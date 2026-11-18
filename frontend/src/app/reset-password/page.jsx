@@ -90,14 +90,14 @@ function ResetPasswordForm() {
           <div className="h-10 w-10 rounded-xl bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/30">
             <ShieldCheck className="h-6 w-6 text-white" />
           </div>
-          <Link href="/" className="text-2xl font-bold tracking-tight text-white">
+          <Link href="/" className="text-xl font-bold tracking-tight text-white">
             TrustShare
           </Link>
         </div>
 
         {/* Hero Content */}
         <div className="my-10 space-y-6">
-          <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight leading-tight">
+          <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight leading-tight">
             Account Recovery <br />
             <span className="text-blue-400">& Identity Protection</span>
           </h1>
@@ -129,7 +129,7 @@ function ResetPasswordForm() {
             <div className="h-12 w-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mb-4 border border-blue-100">
               <KeyRound className="h-6 w-6" />
             </div>
-            <h2 className="text-3xl font-bold tracking-tight text-slate-900">
+            <h2 className="text-2xl font-bold tracking-tight text-slate-900">
               {resetSuccess ? "Password Reset Complete" : isSubmitted ? "Enter Recovery Token" : "Reset Password"}
             </h2>
             <p className="text-sm text-slate-500 mt-1">

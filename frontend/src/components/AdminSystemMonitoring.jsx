@@ -109,7 +109,7 @@ export default function AdminSystemMonitoring({ currentUser, onNavigate }) {
             <span className="text-slate-900 font-bold">System Monitoring</span>
           </div>
 
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
+          <h1 className="text-xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
             <Server className="h-6 w-6 text-indigo-600" />
             <span>System Monitoring & Infrastructure Health</span>
           </h1>
@@ -210,7 +210,7 @@ export default function AdminSystemMonitoring({ currentUser, onNavigate }) {
                 </div>
               </div>
               <div className="flex items-baseline gap-2">
-                <span className="text-2xl font-bold text-slate-900">99.98%</span>
+                <span className="text-base font-bold text-slate-900">99.98%</span>
                 <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
                   Healthy
                 </span>
@@ -230,7 +230,7 @@ export default function AdminSystemMonitoring({ currentUser, onNavigate }) {
                 </div>
               </div>
               <div className="flex items-baseline gap-2">
-                <span className="text-2xl font-bold text-slate-900">{data.system.cpu_percent}%</span>
+                <span className="text-base font-bold text-slate-900">{data.system.cpu_percent}%</span>
                 <span className="text-xs text-slate-500 font-medium">
                   {data.system.cpu_cores} Logical Cores
                 </span>
@@ -253,7 +253,7 @@ export default function AdminSystemMonitoring({ currentUser, onNavigate }) {
                 </div>
               </div>
               <div className="flex items-baseline gap-2">
-                <span className="text-2xl font-bold text-slate-900">{data.system.ram.percent}%</span>
+                <span className="text-base font-bold text-slate-900">{data.system.ram.percent}%</span>
                 <span className="text-xs text-slate-500 font-medium">
                   {data.system.ram.used_gb} / {data.system.ram.total_gb} GB
                 </span>
@@ -278,7 +278,7 @@ export default function AdminSystemMonitoring({ currentUser, onNavigate }) {
                 </div>
               </div>
               <div className="flex items-baseline gap-2">
-                <span className="text-2xl font-bold text-slate-900">{data.system.disk.percent}%</span>
+                <span className="text-base font-bold text-slate-900">{data.system.disk.percent}%</span>
                 <span className="text-xs text-slate-500 font-medium">
                   {data.system.disk.used_gb} / {data.system.disk.total_gb} GB
                 </span>

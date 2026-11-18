@@ -1,20 +1,27 @@
-# Dependencies
-node_modules/
-.next/
-out/
+# Environment & Secret files
+.env
+.env.*
+*.env
+!.env.example
+!frontend/.env.example
+!backend/.env.example
+
+# Python virtual environment & cache
 venv/
+.venv/
+backend/venv/
 __pycache__/
 *.py[cod]
 
-# Environment & Secrets
-.env
-.env*.local
+# Node / Next.js
+node_modules/
+frontend/node_modules/
+.next/
+frontend/.next/
 
-# Storage uploads
+# Vault File Storage
 backend/storage/uploads/*
 !backend/storage/uploads/.gitkeep
 
-# OS / Editor files
-.DS_Store
-Thumbs.db
+# IDE
 .vscode/

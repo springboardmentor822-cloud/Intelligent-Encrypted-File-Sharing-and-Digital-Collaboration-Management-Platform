@@ -279,7 +279,7 @@ function GuestSharePageContent() {
             <h1 className="font-extrabold text-lg sm:text-xl tracking-tight text-white flex items-center gap-2">
               TrustShare <span className="text-xs px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400 border border-blue-500/30">Secure Portal</span>
             </h1>
-            <p className="text-[11px] text-slate-400">Milestone 2: Authenticated AES-256-GCM Secure Sharing</p>
+            <p className="text-[11px] text-slate-400">Authenticated AES-256-GCM Secure Sharing</p>
           </div>
         </div>
 
@@ -642,7 +642,7 @@ function GuestSharePageContent() {
 
       {/* Footer */}
       <footer className="w-full max-w-4xl mx-auto py-4 text-center text-xs text-slate-500 border-t border-slate-800/80">
-        <p>TrustShare Enterprise Cryptographic Security Platform • Milestone 2 Implementation</p>
+        <p>TrustShare Enterprise Cryptographic Security Platform • End-to-End Vault Access</p>
       </footer>
     </div>
   );

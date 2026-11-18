@@ -208,7 +208,7 @@ export default function OAuthAccountPickerModal({
                 <ShieldCheck className="h-7 w-7" />
               </div>
 
-              <h1 className="text-2xl md:text-3xl font-normal text-slate-900 tracking-tight leading-snug">
+              <h1 className="text-xl md:text-2xl font-normal text-slate-900 tracking-tight leading-snug">
                 {isGoogle ? "Choose an account" : "Pick an account"}
               </h1>
               <p className="text-sm text-slate-600 mt-2">

@@ -115,20 +115,19 @@ def sanitize_item(doc: Dict[str, Any]) -> Dict[str, Any]:
     return clean
 
 
-async def build_breadcrumbs(user_id: int, folder_id: Optional[str]) -> List[Dict[str, Any]]:
+async def build_breadcrumbs(user_id: int, folder_id: Optional[str], is_admin: bool = False) -> List[Dict[str, Any]]:
     """Build list of breadcrumbs from root to current folder"""
-    crumbs = [{"id": None, "name": "My Vault"}]
+    crumbs = [{"id": None, "name": "Repository" if is_admin else "My Vault"}]
     curr_id = folder_id
     visited = set()
 
     chain = []
     while curr_id and curr_id not in visited:
         visited.add(curr_id)
-        folder = await mongo_db.file_metadata.find_one({
-            "_id": curr_id,
-            "owner_id": user_id,
-            "is_folder": True
-        })
+        f_query = {"_id": curr_id, "is_folder": True}
+        if not is_admin:
+            f_query["owner_id"] = user_id
+        folder = await mongo_db.file_metadata.find_one(f_query)
         if not folder:
             break
         chain.append({"id": folder["_id"], "name": folder["name"]})
@@ -152,13 +151,14 @@ async def list_files(
     sort_by: str = Query("date_desc"),  # date_desc, date_asc, name_asc, size_desc
     current_user: User = Depends(get_current_user)
 ):
+    # Strict Zero-Knowledge Privacy Boundary:
+    # Every account (including administrators) only views their own files.
+    # Administrators do NOT see or access regular users' private vaults.
     query: Dict[str, Any] = {"owner_id": current_user.id}
 
     # Retrieve active shares owned by current user
-    active_shares = await mongo_db.file_shares.find({
-        "owner_id": current_user.id,
-        "is_active": True
-    }).to_list(length=1000)
+    shares_q: Dict[str, Any] = {"is_active": True, "owner_id": current_user.id}
+    active_shares = await mongo_db.file_shares.find(shares_q).to_list(length=1000)
 
     # Filter out expired or exhausted shares
     now = datetime.now(timezone.utc)
@@ -222,15 +222,17 @@ async def list_files(
     # Current folder details (if not at root)
     current_folder = None
     if folder_id:
-        cf = await mongo_db.file_metadata.find_one({"_id": folder_id, "owner_id": current_user.id})
+        cf_q = {"_id": folder_id, "owner_id": current_user.id}
+        cf = await mongo_db.file_metadata.find_one(cf_q)
         if cf:
             current_folder = sanitize_item(cf)
 
-    breadcrumbs = await build_breadcrumbs(current_user.id, folder_id)
+    breadcrumbs = await build_breadcrumbs(current_user.id, folder_id, is_admin=False)
 
-    # Calculate user's total active storage
+    # Calculate active storage
+    match_crit: Dict[str, Any] = {"is_folder": False, "is_trashed": False, "owner_id": current_user.id}
     storage_pipeline = [
-        {"$match": {"owner_id": current_user.id, "is_folder": False, "is_trashed": False}},
+        {"$match": match_crit},
         {"$group": {"_id": None, "total_bytes": {"$sum": "$file_size"}, "total_files": {"$sum": 1}}}
     ]
     storage_agg = await mongo_db.file_metadata.aggregate(storage_pipeline).to_list(length=1)
@@ -381,10 +383,10 @@ async def upload_files(
                 detail=f"Upload would exceed your 500 MB quota. Remaining space: {remaining // (1024*1024)} MB."
             )
 
-        # Milestone 2 Task (i) & (vii): Perform AES-256-GCM Server-Side Envelope Encryption
+        # Perform AES-256-GCM Server-Side Envelope Encryption
         enc_res = encrypt_file_data(content_bytes, file_id)
 
-        # Milestone 2 Task (ii): Secure Vault Storage (zero plaintext on disk)
+        # Secure Vault Storage (zero plaintext on disk)
         cipher_len, rel_path = storage_service.save_ciphertext(safe_name, enc_res["ciphertext"])
 
         current_storage += file_size
@@ -420,7 +422,7 @@ async def upload_files(
 
         await mongo_db.file_metadata.insert_one(file_doc)
 
-        # Milestone 2 Task (ii) & (vii): Sync file metadata & envelope key references to PostgreSQL
+        # Sync file metadata & envelope key references to PostgreSQL
         try:
             with SessionLocal() as db_session:
                 pg_record = FileRecord(
@@ -596,10 +598,10 @@ async def upload_folder_structure(
                 detail=f"Upload would exceed your 500 MB quota. Remaining space: {remaining // (1024*1024)} MB."
             )
 
-        # Milestone 2 Task (i) & (vii): Perform AES-256-GCM Server-Side Envelope Encryption
+        # Perform AES-256-GCM Server-Side Envelope Encryption
         enc_res = encrypt_file_data(content_bytes, file_id)
 
-        # Milestone 2 Task (ii): Secure Vault Storage (zero plaintext on disk)
+        # Secure Vault Storage (zero plaintext on disk)
         cipher_len, rel_path_stored = storage_service.save_ciphertext(safe_name, enc_res["ciphertext"])
 
         current_storage += file_size
@@ -838,10 +840,10 @@ async def download_file(
     if not item:
         raise HTTPException(status_code=404, detail="File not found.")
 
-    # Role / Owner / Sharing Permission check (Milestone 2 - Task Three):
+    # Role / Owner / Sharing Permission check:
     # Admins, verified owners, or users with valid sharing permissions can download
     has_permission = False
-    if item["owner_id"] == current_user.id or current_user.role == UserRole.ADMIN:
+    if item["owner_id"] == current_user.id:
         has_permission = True
     else:
         # Check if user has received sharing permission via email or share token
@@ -866,6 +868,17 @@ async def download_file(
             has_permission = True
 
     if not has_permission:
+        try:
+            from app.notifications import notification_service
+            await notification_service.notify_security_alert(
+                alert_title="Unauthorized File Access Blocked",
+                alert_message=f"User '{current_user.username}' attempted unauthorized access to file '{item['name']}'",
+                file_id=item_id,
+                file_name=item["name"],
+                priority="high"
+            )
+        except Exception:
+            pass
         raise HTTPException(status_code=403, detail="Permission denied to access this file.")
 
     # Check password protection if enabled
@@ -902,7 +915,20 @@ async def download_file(
     # Increment download counter
     await mongo_db.file_metadata.update_one({"_id": item_id}, {"$inc": {"downloads_count": 1}})
 
-    # Milestone 2 Task (viii): Decrypt on-the-fly if AES-256-GCM encrypted
+    # Notify file owner of download if downloaded by someone else
+    if item.get("owner_id") and item.get("owner_id") != current_user.id:
+        try:
+            from app.notifications import notification_service
+            await notification_service.notify_file_downloaded(
+                owner_id=item["owner_id"],
+                downloader_name=current_user.username,
+                file_name=item["name"],
+                file_id=item_id
+            )
+        except Exception:
+            pass
+
+    # Decrypt on-the-fly if AES-256-GCM encrypted
     if item.get("is_encrypted") and "dek_info" in item:
         ciphertext = storage_service.read_ciphertext(stored_name)
         try:
@@ -1179,21 +1205,24 @@ async def get_user_file_analytics(
     Supports flexible date filtering (days / custom date ranges).
     """
     now_utc = datetime.now(timezone.utc)
+    actual_days = days if isinstance(days, int) else 30
+    actual_start = start_date if isinstance(start_date, str) else None
+    actual_end = end_date if isinstance(end_date, str) else None
 
     # Resolve date boundaries
-    if start_date and end_date:
+    if actual_start and actual_end:
         try:
-            start_dt = datetime.fromisoformat(start_date.replace("Z", "+00:00"))
-            end_dt = datetime.fromisoformat(end_date.replace("Z", "+00:00"))
+            start_dt = datetime.fromisoformat(actual_start.replace("Z", "+00:00"))
+            end_dt = datetime.fromisoformat(actual_end.replace("Z", "+00:00"))
             if start_dt.tzinfo is None:
                 start_dt = start_dt.replace(tzinfo=timezone.utc)
             if end_dt.tzinfo is None:
                 end_dt = end_dt.replace(tzinfo=timezone.utc)
         except Exception:
             end_dt = now_utc
-            start_dt = end_dt - timedelta(days=max(1, min(days, 365)) - 1)
+            start_dt = end_dt - timedelta(days=max(1, min(actual_days, 365)) - 1)
     else:
-        num_days = max(1, min(days, 365))
+        num_days = max(1, min(actual_days, 365))
         end_dt = now_utc
         start_dt = end_dt - timedelta(days=num_days - 1)
 
@@ -1235,8 +1264,8 @@ async def get_user_file_analytics(
 
     storage_used_str = fmt_sz(live_storage_bytes)
 
-    # User standard quota: 100 GB
-    quota_bytes = 100 * 1024 * 1024 * 1024
+    # User standard quota: 500 MB
+    quota_bytes = 500 * 1024 * 1024
     storage_percentage = min(100.0, round((live_storage_bytes / max(quota_bytes, 1)) * 100, 2))
 
     # Compute growth over the selected period
@@ -1465,7 +1494,7 @@ async def get_user_file_analytics(
     return {
         "summary": {
             "total_storage_used": storage_used_str,
-            "total_storage_limit": "100 GB",
+            "total_storage_limit": "500 MB",
             "storage_percentage": storage_percentage,
             "storage_change": storage_change,
             "total_uploads": live_file_count,

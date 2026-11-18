@@ -170,7 +170,7 @@ export default function UserFileAnalytics({ currentUser }) {
 
   const summary = data?.summary || {
     total_storage_used: "0 B",
-    total_storage_limit: "100 GB",
+    total_storage_limit: "500 MB",
     storage_percentage: 0,
     storage_change: 0,
     total_uploads: 0,
@@ -243,8 +243,8 @@ export default function UserFileAnalytics({ currentUser }) {
             <span className="text-slate-900 font-bold">File Analytics</span>
           </div>
 
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
-            <BarChart3 className="h-6 w-6 text-blue-600" />
+          <h1 className="text-xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
+            <BarChart3 className="h-5 w-5 text-blue-600" />
             <span>File Analytics</span>
           </h1>
           <p className="text-xs text-slate-500 mt-0.5">
@@ -257,9 +257,9 @@ export default function UserFileAnalytics({ currentUser }) {
           <button
             type="button"
             onClick={() => setIsDatePickerOpen(!isDatePickerOpen)}
-            className="inline-flex items-center gap-2 px-3.5 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 hover:border-slate-300 transition cursor-pointer"
+            className="inline-flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 hover:border-slate-300 transition cursor-pointer"
           >
-            <Calendar className="h-4 w-4 text-blue-600" />
+            <Calendar className="h-3.5 w-3.5 text-blue-600" />
             <span>{dateRange}</span>
             <ChevronDown className="h-3.5 w-3.5 text-slate-400 ml-1" />
           </button>
@@ -268,9 +268,9 @@ export default function UserFileAnalytics({ currentUser }) {
             type="button"
             onClick={() => fetchAnalytics()}
             title="Refresh File Analytics"
-            className="p-2 bg-white border border-slate-200 rounded-xl text-slate-600 hover:text-blue-600 hover:border-blue-200 transition shadow-2xs cursor-pointer"
+            className="p-1.5 bg-white border border-slate-200 rounded-xl text-slate-600 hover:text-blue-600 hover:border-blue-200 transition shadow-2xs cursor-pointer"
           >
-            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin text-blue-600" : ""}`} />
+            <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin text-blue-600" : ""}`} />
           </button>
 
           {/* Interactive Date Range Popover */}
@@ -353,82 +353,82 @@ export default function UserFileAnalytics({ currentUser }) {
       </div>
 
       {/* Top 5 Metrics Strip - Authentic Production SaaS Metric Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 pt-1">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 pt-1">
         {/* Card 1: Storage Used */}
-        <div className="p-3.5 bg-white rounded-xl border border-slate-200 shadow-2xs">
-          <div className="flex items-center justify-between text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+        <div className="p-3 bg-white rounded-xl border border-slate-200 shadow-2xs">
+          <div className="flex items-center justify-between text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
             <span>Storage Used</span>
-            <Database className="h-4 w-4 text-blue-600" />
+            <Database className="h-3.5 w-3.5 text-blue-600" />
           </div>
-          <div className="mt-1 flex items-baseline gap-1.5">
-            <span className="text-xl font-bold text-slate-900">
+          <div className="mt-1 flex items-baseline gap-1">
+            <span className="text-base font-bold text-slate-900">
               {summary.total_storage_used}
             </span>
-            <span className="text-xs text-slate-500 font-medium">
+            <span className="text-[11px] text-slate-500 font-medium">
               / {summary.total_storage_limit} ({summary.storage_percentage}%)
             </span>
           </div>
         </div>
 
         {/* Card 2: Total Uploads */}
-        <div className="p-3.5 bg-white rounded-xl border border-slate-200 shadow-2xs">
-          <div className="flex items-center justify-between text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+        <div className="p-3 bg-white rounded-xl border border-slate-200 shadow-2xs">
+          <div className="flex items-center justify-between text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
             <span>Total Uploads</span>
-            <UploadCloud className="h-4 w-4 text-emerald-600" />
+            <UploadCloud className="h-3.5 w-3.5 text-emerald-600" />
           </div>
-          <div className="mt-1 flex items-baseline gap-1.5">
-            <span className="text-xl font-bold text-slate-900">
+          <div className="mt-1 flex items-baseline gap-1">
+            <span className="text-base font-bold text-slate-900">
               {summary.total_uploads}
             </span>
-            <span className="text-xs text-slate-500 font-medium">
+            <span className="text-[11px] text-slate-500 font-medium">
               files stored
             </span>
           </div>
         </div>
 
         {/* Card 3: Total Downloads */}
-        <div className="p-3.5 bg-white rounded-xl border border-slate-200 shadow-2xs">
-          <div className="flex items-center justify-between text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+        <div className="p-3 bg-white rounded-xl border border-slate-200 shadow-2xs">
+          <div className="flex items-center justify-between text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
             <span>Total Downloads</span>
-            <Download className="h-4 w-4 text-purple-600" />
+            <Download className="h-3.5 w-3.5 text-purple-600" />
           </div>
-          <div className="mt-1 flex items-baseline gap-1.5">
-            <span className="text-xl font-bold text-slate-900">
+          <div className="mt-1 flex items-baseline gap-1">
+            <span className="text-base font-bold text-slate-900">
               {summary.total_downloads}
             </span>
-            <span className="text-xs text-slate-500 font-medium">
+            <span className="text-[11px] text-slate-500 font-medium">
               retrievals logged
             </span>
           </div>
         </div>
 
         {/* Card 4: Shared Documents */}
-        <div className="p-3.5 bg-white rounded-xl border border-slate-200 shadow-2xs">
-          <div className="flex items-center justify-between text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+        <div className="p-3 bg-white rounded-xl border border-slate-200 shadow-2xs">
+          <div className="flex items-center justify-between text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
             <span>Shared Documents</span>
-            <Share2 className="h-4 w-4 text-sky-600" />
+            <Share2 className="h-3.5 w-3.5 text-sky-600" />
           </div>
-          <div className="mt-1 flex items-baseline gap-1.5">
-            <span className="text-xl font-bold text-slate-900">
+          <div className="mt-1 flex items-baseline gap-1">
+            <span className="text-base font-bold text-slate-900">
               {summary.total_shares}
             </span>
-            <span className="text-xs text-slate-500 font-medium">
+            <span className="text-[11px] text-slate-500 font-medium">
               active shares
             </span>
           </div>
         </div>
 
         {/* Card 5: Security Status */}
-        <div className="p-3.5 bg-white rounded-xl border border-slate-200 shadow-2xs">
-          <div className="flex items-center justify-between text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+        <div className="p-3 bg-white rounded-xl border border-slate-200 shadow-2xs">
+          <div className="flex items-center justify-between text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
             <span>Security Status</span>
-            <ShieldCheck className="h-4 w-4 text-emerald-600" />
+            <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
           </div>
-          <div className="mt-1 flex items-baseline gap-1.5">
-            <span className="text-xl font-bold text-slate-900">
+          <div className="mt-1 flex items-baseline gap-1">
+            <span className="text-base font-bold text-slate-900">
               100%
             </span>
-            <span className="text-xs text-emerald-600 font-semibold">
+            <span className="text-[11px] text-emerald-600 font-semibold">
               AES-256-GCM Vault
             </span>
           </div>
@@ -501,14 +501,19 @@ export default function UserFileAnalytics({ currentUser }) {
                 {/* Dynamic segments based on activeBreakdown */}
                 {(() => {
                   const circ = 238.76;
-                  let cumulative = 0;
-                  return activeBreakdown.map((item, idx) => {
+                  const segments = activeBreakdown.map((item, idx) => {
                     const pct = Math.max(0, Math.min(100, item.percentage || 0));
                     const dash = (pct / 100) * circ;
                     const space = circ - dash;
-                    const offset = -cumulative;
-                    cumulative += dash;
-                    if (dash <= 0) return null;
+                    const priorDashes = activeBreakdown
+                      .slice(0, idx)
+                      .reduce((acc, curr) => acc + (Math.max(0, Math.min(100, curr.percentage || 0)) / 100) * circ, 0);
+                    const offset = -priorDashes;
+                    return { item, dash, space, offset };
+                  });
+
+                  return segments.map((seg, idx) => {
+                    if (seg.dash <= 0) return null;
                     return (
                       <circle
                         key={idx}
@@ -516,10 +521,10 @@ export default function UserFileAnalytics({ currentUser }) {
                         cy="50"
                         r="38"
                         fill="transparent"
-                        stroke={item.color || "#3B82F6"}
+                        stroke={seg.item.color || "#3B82F6"}
                         strokeWidth="14"
-                        strokeDasharray={`${dash.toFixed(2)} ${space.toFixed(2)}`}
-                        strokeDashoffset={offset.toFixed(2)}
+                        strokeDasharray={`${seg.dash.toFixed(2)} ${seg.space.toFixed(2)}`}
+                        strokeDashoffset={seg.offset.toFixed(2)}
                       />
                     );
                   });

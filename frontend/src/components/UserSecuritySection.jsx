@@ -214,7 +214,7 @@ export default function UserSecuritySection() {
           <Shield className="h-6 w-6" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+          <h1 className="text-xl font-bold tracking-tight text-slate-900">
             Security
           </h1>
           <p className="text-sm text-slate-500">

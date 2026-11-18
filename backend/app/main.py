@@ -3,6 +3,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from app.database import engine, Base, mongo_client, mongo_db, redis_client, get_db
 from app.routers import auth, files, admin, shares
+from app.activity_monitoring import router as activity_monitoring_router
+from app.activity_monitoring.audit_routes import router as audit_logs_router
+from app.notifications import router as notifications_router
+from app.reports import router as reports_router
+from app.analytics import router as analytics_router
+from app.security_monitoring import router as security_monitoring_router
 from app.models import User
 import app.models
 
@@ -29,6 +35,12 @@ app.include_router(auth.router)
 app.include_router(files.router)
 app.include_router(shares.router)
 app.include_router(admin.router)
+app.include_router(activity_monitoring_router)
+app.include_router(audit_logs_router)
+app.include_router(notifications_router)
+app.include_router(reports_router)
+app.include_router(analytics_router)
+app.include_router(security_monitoring_router)
 
 @app.get("/")
 def root():
@@ -157,4 +169,4 @@ async def platform_stats(db: Session = Depends(get_db)):
         "all_connected": all_connected,
         "uptime_sla": "99.9%" if all_connected else "Degraded",
         "recent_files": recent_files
-    }
+    }

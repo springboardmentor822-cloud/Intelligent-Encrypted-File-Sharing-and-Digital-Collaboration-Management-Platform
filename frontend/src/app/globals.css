@@ -1,8 +1,24 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   --background: #f8fafc;
   --foreground: #0f172a;
+  --card-bg: #ffffff;
+  --card-border: #e2e8f0;
+  --muted-text: #64748b;
+  --subtle-bg: #f8fafc;
+}
+
+html.dark {
+  --background: #090d16;
+  --foreground: #f1f5f9;
+  --card-bg: #0f172a;
+  --card-border: #1e293b;
+  --muted-text: #94a3b8;
+  --subtle-bg: #0d1322;
+  color-scheme: dark;
 }
 
 body {
@@ -10,4 +26,132 @@ body {
   color: var(--foreground);
   font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
   -webkit-font-smoothing: antialiased;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* ========================================================================== */
+/* DARK MODE CONTRAST & SEMANTIC COLOR NORMALIZATION */
+/* ========================================================================== */
+
+/* 1. Cards and Surfaces */
+html.dark .bg-white,
+html.dark [class*="bg-white/"] {
+  background-color: #0f172a !important;
+}
+
+html.dark .bg-slate-50,
+html.dark [class*="bg-slate-50/"] {
+  background-color: #090d16 !important;
+}
+
+/* 2. Neutral Badges and Inset Elements */
+html.dark .bg-slate-100 {
+  background-color: #1e293b !important;
+  color: #f1f5f9 !important;
+  border-color: #334155 !important;
+}
+
+html.dark .bg-slate-200 {
+  background-color: #334155 !important;
+  color: #f8fafc !important;
+  border-color: #475569 !important;
+}
+
+/* 3. Borders & Dividers */
+html.dark .border-slate-100,
+html.dark .border-slate-200,
+html.dark [class*="border-slate-100/"],
+html.dark [class*="border-slate-200/"] {
+  border-color: #1e293b !important;
+}
+
+html.dark .divide-slate-100 > :not([hidden]) ~ :not([hidden]),
+html.dark .divide-slate-200 > :not([hidden]) ~ :not([hidden]) {
+  border-color: #1e293b !important;
+}
+
+/* 4. Text Hierarchy & Readability */
+html.dark .text-slate-900,
+html.dark .text-slate-800 {
+  color: #f8fafc !important;
+}
+
+html.dark .text-slate-700,
+html.dark .text-slate-600 {
+  color: #cbd5e1 !important;
+}
+
+html.dark .text-slate-500,
+html.dark .text-slate-400 {
+  color: #94a3b8 !important;
+}
+
+/* 5. Colored Badges & Telemetry Pills (High-Contrast Inverted Dark Theme) */
+html.dark .bg-blue-50 {
+  background-color: rgba(30, 58, 138, 0.35) !important;
+  color: #93c5fd !important;
+  border-color: rgba(59, 130, 246, 0.4) !important;
+}
+
+html.dark .bg-emerald-50 {
+  background-color: rgba(6, 78, 59, 0.35) !important;
+  color: #86efac !important;
+  border-color: rgba(16, 185, 129, 0.4) !important;
+}
+
+html.dark .bg-rose-50 {
+  background-color: rgba(136, 19, 55, 0.35) !important;
+  color: #fca5a5 !important;
+  border-color: rgba(244, 63, 94, 0.4) !important;
+}
+
+html.dark .bg-amber-50 {
+  background-color: rgba(120, 53, 15, 0.35) !important;
+  color: #fde047 !important;
+  border-color: rgba(245, 158, 11, 0.4) !important;
+}
+
+html.dark .bg-purple-50 {
+  background-color: rgba(88, 28, 135, 0.35) !important;
+  color: #d8b4fe !important;
+  border-color: rgba(168, 85, 247, 0.4) !important;
+}
+
+html.dark .bg-cyan-50 {
+  background-color: rgba(22, 78, 99, 0.35) !important;
+  color: #67e8f9 !important;
+  border-color: rgba(6, 182, 212, 0.4) !important;
+}
+
+/* 6. Form Controls & Dropdowns */
+html.dark input[type="text"],
+html.dark input[type="password"],
+html.dark input[type="email"],
+html.dark input[type="date"],
+html.dark select {
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+  color: #f8fafc !important;
+}
+
+html.dark input::placeholder {
+  color: #64748b !important;
+}
+
+/* 7. Hover States */
+html.dark .hover\:bg-slate-50:hover,
+html.dark .hover\:bg-slate-100:hover,
+html.dark [class*="hover\:bg-slate-50"]:hover {
+  background-color: #1e293b !important;
+}
+
+/* 8. Table Elements */
+html.dark thead {
+  background-color: #0d1322 !important;
+  color: #94a3b8 !important;
+  border-color: #1e293b !important;
+}
+
+html.dark table tbody td {
+  color: #cbd5e1 !important;
 }
