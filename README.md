@@ -1,15 +1,14 @@
-# TrustShare – Secure Encrypted File Sharing Platform
+# TrustShare – Intelligent Encrypted File Sharing and Digital Collaboration Management Platform
 
-TrustShare is a secure, web-based file storage and sharing platform designed to protect files while enabling safe collaboration. It uses AES-256-GCM encryption to protect uploaded files and provides authenticated access, controlled file sharing, activity tracking, and security monitoring.
+## 1. Project Overview
 
-The application provides separate User and Admin panels, allowing users to manage their files while administrators monitor platform activity, security events, access permissions, and storage usage.
+TrustShare is a secure file-sharing and digital collaboration platform designed to help users upload, store, manage, and share files securely.
 
-<<<<<<< HEAD
-## 1. What TrustShare does
-=======
----
+The platform focuses on protecting sensitive information through encryption, authenticated access, controlled file sharing, and activity monitoring. It provides users with an organized environment to manage their files while offering administrators tools to monitor users, security events, and platform activities.
 
-## 1. Key Features
+The application is developed using React.js for the frontend and Python FastAPI for the backend, with PostgreSQL, MongoDB, and Redis supporting data storage and application services.
+
+## 2. Key Features
 
 ### User Features
 - Secure user registration and login.
@@ -46,10 +45,7 @@ The application provides separate User and Admin panels, allowing users to manag
 - Controlled file-sharing links.
 - Encryption key rotation support.
 
----
-
-## 2. Technology Stack
->>>>>>> 42655aa (Updated TrustShare README documentation)
+## 3. Technology Stack
 
 | Component | Technology |
 |---|---|
@@ -67,9 +63,7 @@ The application provides separate User and Admin panels, allowing users to manag
 | Charts and Analytics | Recharts |
 | Containerization | Docker, Docker Compose |
 
----
-
-## 3. Project Structure
+## 4. Project Structure
 
 ```text
 trustshare/
@@ -109,68 +103,70 @@ trustshare/
 └── README.md
 ```
 
----
+## 5. Prerequisites
 
-## 4. Prerequisites
-
-Install the following before running the application:
+Install the following software before running the application:
 
 1. **Git** – For source code management.
-2. **Docker Desktop** – For running the application and databases.
+2. **Docker Desktop** – For running the application and supporting services.
 3. **Node.js and npm** – For frontend development.
 4. **Python 3.12** – For backend development.
 
 For the easiest setup, Docker Desktop is recommended.
 
----
+## 6. Running the Application Using Docker
 
-## 5. Run the Application Using Docker (Recommended)
+Docker Compose allows the application and its supporting services to run together.
 
-Docker Compose allows you to run the frontend, backend, PostgreSQL, MongoDB, and Redis together.
-
-### Step 1: Clone the repository
+### Step 1: Clone the Repository
 
 ```bash
 git clone <YOUR_REPOSITORY_URL>
 ```
 
-Navigate into the project directory:
+Navigate to the project directory:
 
 ```bash
 cd trustshare
 ```
 
-### Step 2: Prepare the local environment file
+### Step 2: Prepare the Environment File
 
-Make sure your local `.env` file is available in the root project directory. If you have an `.env.example` file, create your local copy:
+If `.env.example` is available, create a local `.env` file.
+
+For Windows PowerShell:
 
 ```powershell
-<<<<<<< HEAD
-docker --version
-docker compose version
-node --version
-python --version
-=======
 Copy-Item .env.example .env
 ```
 
-The application requires the appropriate environment variables to be configured before starting.
+For Git Bash or Unix:
+
+```bash
+cp .env.example .env
+```
+
+Configure the required values in `.env` according to the application's requirements.
+
+Do not upload your actual `.env` file to GitHub.
 
 ### Step 3: Start Docker Desktop
 
 Open Docker Desktop and wait until the Docker engine is running.
 
-### Step 4: Build and start the application
+### Step 4: Build and Start the Application
 
-Run this command from the root `trustshare` directory:
+From the root project directory, run:
 
 ```bash
 docker compose up --build
 ```
 
-Wait for all containers to start successfully.
+Wait for the containers to start.
 
-### Step 5: Access the application
+### Step 5: Access the Application
+
+The following are the expected local service addresses, provided the Docker configuration uses these ports:
 
 | Service | URL |
 |---|---|
@@ -179,61 +175,59 @@ Wait for all containers to start successfully.
 | Swagger API Documentation | http://localhost:8000/docs |
 | Backend Health Check | http://localhost:8000/health |
 
-### Step 6: Register and log in
+### Step 6: Register and Log In
 
 1. Open the TrustShare frontend.
 2. Register a user account.
 3. Log in using your credentials.
 4. Upload and manage files.
-5. Test file sharing and other available features.
+5. Test file-sharing functionality and other available features.
 
 Administrator access depends on the administrator account configuration.
 
-### Run Docker in the background
+### Run Docker in the Background
 
 ```bash
 docker compose up -d --build
 ```
 
-### Check running containers
+### Check Running Containers
 
 ```bash
 docker compose ps
 ```
 
-### View application logs
+### View Application Logs
 
 ```bash
 docker compose logs
 ```
 
-View backend logs:
+### View Backend Logs
 
 ```bash
 docker compose logs backend
 ```
 
-View frontend logs:
+### View Frontend Logs
 
 ```bash
 docker compose logs frontend
 ```
 
-### Stop the application
+### Stop the Application
 
 ```bash
 docker compose down
 ```
 
-**Note:** Avoid `docker compose down -v` unless you intentionally want to delete the persistent database and uploaded-file volumes.
+**Note:** Avoid `docker compose down -v` unless you intentionally want to delete persistent database and uploaded-file volumes.
 
----
+## 7. Running the Application in Development Mode
 
-## 6. Run the Application in Development Mode
+The backend and frontend can also be started separately while using Docker for the supporting database services.
 
-You can also run the backend and frontend separately while using Docker for the databases.
-
-### Step 1: Start the database services
+### Step 1: Start the Database Services
 
 From the root project directory:
 
@@ -241,45 +235,45 @@ From the root project directory:
 docker compose up -d postgres mongo redis
 ```
 
-Check the database containers:
+Check the running services:
 
 ```bash
 docker compose ps
 ```
 
-### Step 2: Start the backend
+### Step 2: Start the Backend
 
-Open a new terminal:
+Open a new terminal and navigate to the backend directory:
 
-```powershell
+```bash
 cd backend
 ```
 
-Create a virtual environment:
+Create a Python virtual environment:
 
-```powershell
+```bash
 python -m venv venv
 ```
 
-Activate it:
+Activate the virtual environment in Windows PowerShell:
 
 ```powershell
 .\venv\Scripts\Activate.ps1
 ```
 
-If PowerShell blocks activation:
+If PowerShell blocks activation, run:
 
 ```powershell
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 ```
 
-Then activate again:
+Then activate the environment again:
 
 ```powershell
 .\venv\Scripts\Activate.ps1
 ```
 
-Install backend dependencies:
+Install the backend dependencies:
 
 ```bash
 pip install -r requirements.txt
@@ -295,11 +289,11 @@ Backend URL:
 
 http://localhost:8000
 
-### Step 3: Start the frontend
+### Step 3: Start the Frontend
 
-Open another terminal:
+Open another terminal and navigate to the frontend directory:
 
-```powershell
+```bash
 cd frontend
 ```
 
@@ -321,11 +315,7 @@ http://localhost:5173
 
 Keep both terminals running while using the application.
 
----
-
-## 7. Running Backend Tests
-
-The backend includes automated tests for application functionality and security.
+## 8. Running Backend Tests
 
 Navigate to the backend directory:
 
@@ -333,33 +323,30 @@ Navigate to the backend directory:
 cd backend
 ```
 
-Activate the virtual environment:
-
-```powershell
-.\venv\Scripts\Activate.ps1
-```
-
-Run the tests:
+Activate the Python virtual environment and run:
 
 ```bash
 pytest -v
 ```
 
----
+This executes the available backend test cases.
 
-## 8. API Documentation
+## 9. API Documentation
 
 TrustShare uses FastAPI to provide interactive API documentation.
 
-Once the backend is running, open:
+After starting the backend, open:
 
 http://localhost:8000/docs
 
-The Swagger interface allows developers to explore API endpoints, view request and response structures, and test supported API operations.
+The Swagger interface allows developers to:
 
----
+- Explore available API endpoints.
+- View request and response structures.
+- Understand API parameters.
+- Test supported API operations.
 
-## 9. Important Application Modules
+## 10. Important Application Modules
 
 | Module | Description |
 |---|---|
@@ -374,22 +361,19 @@ The Swagger interface allows developers to explore API endpoints, view request a
 | Analytics | File, storage and sharing statistics |
 | Notifications | Application notifications and alerts |
 
----
-
-## 10. Security Considerations
+## 11. Security Considerations
 
 - Passwords are hashed before storage.
 - JWT authentication protects secured API endpoints.
-- Role-based access control restricts administrator functionality.
+- Role-Based Access Control restricts administrator functionality.
 - AES-256-GCM protects stored file contents.
-- Audit logs help track application activity.
+- Audit logs help track application activities.
 - Sharing links support access restrictions and expiration.
-- Sensitive credentials and encryption keys should be kept private.
+- Sensitive credentials and encryption keys must be kept private.
 - The `.env` file must never be uploaded to a public GitHub repository.
+- Production deployments should use secure HTTPS connections and appropriately managed encryption keys.
 
----
-
-## 11. Future Enhancements
+## 12. Future Enhancements
 
 Potential improvements include:
 
@@ -399,4 +383,3 @@ Potential improvements include:
 - More detailed security analytics.
 - Improved mobile responsiveness.
 
->>>>>>> 42655aa (Updated TrustShare README documentation)
