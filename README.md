@@ -107,6 +107,7 @@ Storage providers, HTTPS certificates, email, Google sign-in, demo data and all 
 | [Features](docs/features.md) | The complete feature list |
 | [Project brief coverage](docs/brief-coverage.md) | Each item of the brief → where it is implemented and tested |
 | [Setup and configuration](docs/setup.md) | Installation, storage, HTTPS, environment variables, tests, troubleshooting |
+| [Deployment guide](docs/deployment.md) | Production setup and deployment to Azure with HTTPS |
 | [API reference](docs/api.md) | Endpoints by module, with required permissions |
 | [Architecture](docs/architecture.md) · [Database](docs/database.md) · [Key management](docs/key-management.md) | System design |
 | [Requirements](docs/requirements.md) · [Wireframes](docs/wireframes.html) | Roles, permission matrix, user stories, UI plan |

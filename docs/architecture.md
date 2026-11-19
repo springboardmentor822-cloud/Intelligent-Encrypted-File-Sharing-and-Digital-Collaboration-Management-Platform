@@ -273,7 +273,7 @@ sequenceDiagram
     participant MO as MongoDB
 
     U->>API: POST /api/files (multipart, JWT)
-    API->>API: Permission file:upload, type allow-list, size, quota, magic bytes, SHA-256 
+    API->>API: Permission file:upload, type allow-list, size, quota, magic bytes, SHA-256
     API->>ENC: new random DEK (256-bit)
     ENC->>ENC: encrypt 1 MiB chunks with AES-256-GCM (nonce = prefix + counter + last flag, AAD = file id + index)
     API->>S3: PUT encrypted object (private bucket, random key)
