@@ -41,6 +41,7 @@ import {
 } from "lucide-react";
 import "./App.css";
 
+const API_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
 const initialFiles = [
   {
     name: "Project_Report.pdf",
@@ -185,7 +186,7 @@ function LoginPage({ onLogin }) {
     setLoading(true);
     setError("");
 
-    const response = await fetch("http://127.0.0.1:8000/login", {
+    const response = await fetch(""+API_URL+"login", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -641,7 +642,7 @@ function SharedWithMe({ token }) {
     async function fetchSharedFiles() {
       try {
         const response = await fetch(
-          "http://127.0.0.1:8000/shared-with-me",
+          ""+API_URL+"shared-with-me",
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -678,7 +679,7 @@ async function downloadSharedFile(file) {
 
   try {
     const response = await fetch(
-      `http://127.0.0.1:8000/shared-with-me/${file.share_id}/download`,
+      `"+API_URL+"shared-with-me/${file.share_id}/download`,
       {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -778,7 +779,7 @@ function SharedByMe({ token }) {
     async function fetchSharedFiles() {
       try {
         const response = await fetch(
-          "http://127.0.0.1:8000/shared-by-me",
+          ""+API_URL+"shared-by-me",
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -811,7 +812,7 @@ function SharedByMe({ token }) {
 
     try {
       const response = await fetch(
-        `http://127.0.0.1:8000/shares/${shareId}`,
+        `"+API_URL+"shares/${shareId}`,
         {
           method: "DELETE",
           headers: {
@@ -846,7 +847,7 @@ function SharedByMe({ token }) {
       setError("");
 
       const response = await fetch(
-        `http://127.0.0.1:8000/shared-with-me/${file.share_id}/view`,
+        `"+API_URL+"shared-with-me/${file.share_id}/view`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -969,7 +970,7 @@ function SharedByMe({ token }) {
     if (!token) return;
 
     try {
-      const response = await fetch("http://127.0.0.1:8000/files", {
+      const response = await fetch(""+API_URL+"files", {
         method: "GET",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -1018,7 +1019,7 @@ useEffect(() => {
 
     try {
       const response = await fetch(
-        "http://127.0.0.1:8000/dashboard/stats",
+        ""+API_URL+"dashboard/stats",
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -1047,7 +1048,7 @@ useEffect(() => {
 
     try {
       const response = await fetch(
-        "http://127.0.0.1:8000/shared-by-me",
+        ""+API_URL+"shared-by-me",
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -1082,12 +1083,12 @@ useEffect(() => {
 
     try {
       const [notificationsResponse, countResponse] = await Promise.all([
-        fetch("http://127.0.0.1:8000/notifications", {
+        fetch(""+API_URL+"notifications", {
           headers: {
             Authorization: `Bearer ${token}`,
           },
         }),
-        fetch("http://127.0.0.1:8000/notifications/unread-count", {
+        fetch(""+API_URL+"notifications/unread-count", {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -1121,7 +1122,7 @@ async function markNotificationAsRead(notificationId) {
 
   try {
     const response = await fetch(
-      `http://127.0.0.1:8000/notifications/${notificationId}/read`,
+      `"+API_URL+"notifications/${notificationId}/read`,
       {
         method: "PATCH",
         headers: {
@@ -1194,7 +1195,7 @@ const allowed = selected.filter(
       const formData = new FormData();
       formData.append("file", file);
 
-      const response = await fetch("http://127.0.0.1:8000/upload", {
+      const response = await fetch(""+API_URL+"upload", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -1212,7 +1213,7 @@ const allowed = selected.filter(
     }
 
     const filesResponse = await fetch(
-      "http://127.0.0.1:8000/files",
+      ""+API_URL+"files",
       {
         method: "GET",
         headers: {
@@ -1270,7 +1271,7 @@ async function deleteFile(file) {
 
   try {
     const response = await fetch(
-      `http://127.0.0.1:8000/files/${file.id}`,
+      `"+API_URL+"files/${file.id}`,
       {
         method: "DELETE",
         headers: {
@@ -1330,7 +1331,7 @@ async function createShare(event) {
     setCreatedShare(null);
 
     const response = await fetch(
-      `http://127.0.0.1:8000/files/${shareFile.id}/share`,
+      `"+API_URL+"files/${shareFile.id}/share`,
       {
         method: "POST",
         headers: {
@@ -1353,7 +1354,7 @@ async function createShare(event) {
 
     setCreatedShare({
       shareId: data.share_id,
-      link: `http://127.0.0.1:8000/share/${data.share_token}`,
+      link: `"+API_URL+"share/${data.share_token}`,
       expiresAt: data.expires_at,
     });
 
@@ -1400,7 +1401,7 @@ async function copyShareLink() {
     }
 
     const response = await fetch(
-      `http://127.0.0.1:8000/files/${file.id}/download`,
+      `"+API_URL+"files/${file.id}/download`,
       {
         method: "GET",
         headers: {
@@ -2057,7 +2058,7 @@ function SecurityPage({ token }) {
         setError("");
 
         const response = await fetch(
-          "http://127.0.0.1:8000/admin/security/events?limit=100",
+          ""+API_URL+"admin/security/events?limit=100",
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -2464,7 +2465,7 @@ if (startDate) params.append("start_date", startDate);
 if (endDate) params.append("end_date", endDate);
 
 const response = await fetch(
-  `http://127.0.0.1:8000/audit-logs/filter?${params.toString()}`,
+  `"+API_URL+"audit-logs/filter?${params.toString()}`,
   {
     headers: {
       Authorization: `Bearer ${token}`,
@@ -2648,7 +2649,7 @@ if (startDate) params.append("start_date", startDate);
 if (endDate) params.append("end_date", endDate);
 
 const response = await fetch(
-  `http://127.0.0.1:8000/audit-logs/filter?${params.toString()}`,
+  `"+API_URL+"audit-logs/filter?${params.toString()}`,
   {
     headers: {
       Authorization: `Bearer ${token}`,
@@ -2814,7 +2815,7 @@ function AdminSharingReportsPage({ token }) {
         setError("");
 
         const response = await fetch(
-          "http://127.0.0.1:8000/admin/sharing-reports",
+          ""+API_URL+"admin/sharing-reports",
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -3123,7 +3124,7 @@ function AdminUserManagementPage({ token }) {
       setLoading(true);
       setError("");
 
-      const response = await fetch("http://127.0.0.1:8000/admin/users", {
+      const response = await fetch(""+API_URL+"admin/users", {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -3217,7 +3218,7 @@ function AdminFileManagementPage({ token }) {
       setError("");
 
       const response = await fetch(
-        "http://127.0.0.1:8000/admin/files",
+        ""+API_URL+"admin/files",
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -3531,7 +3532,7 @@ function AdminAnalyticsPage({ token, title = "Admin Analytics" }) {
 
       try {
         const response = await fetch(
-          "http://127.0.0.1:8000/admin/dashboard/stats",
+          ""+API_URL+"admin/dashboard/stats",
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -3705,7 +3706,7 @@ function SuspiciousActivityPage({ token }) {
       }
 
       const response = await fetch(
-        `http://127.0.0.1:8000/admin/suspicious-activity?${params.toString()}`,
+        `"+API_URL+"admin/suspicious-activity?${params.toString()}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -3869,7 +3870,7 @@ function AdminReportsPage({ token }) {
       if (endDate) params.append("end_date", endDate);
 
       const response = await fetch(
-        `http://127.0.0.1:8000/admin/reports?${params.toString()}`,
+        `"+API_URL+"admin/reports?${params.toString()}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -4071,7 +4072,7 @@ function StorageAnalyticsPage({ token }) {
         setError("");
 
         const response = await fetch(
-          "http://127.0.0.1:8000/admin/dashboard/stats",
+          ""+API_URL+"admin/dashboard/stats",
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -4273,7 +4274,7 @@ function AdminRecentSecurityEvents({ token }) {
         setError("");
 
         const response = await fetch(
-          "http://127.0.0.1:8000/admin/security/events?limit=10",
+          ""+API_URL+"admin/security/events?limit=10",
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -4394,7 +4395,7 @@ function AdminSettingsPage({ token }) {
       setLoading(true);
 
       const response = await fetch(
-        "http://127.0.0.1:8000/admin/change-password",
+        ""+API_URL+"admin/change-password",
         {
           method: "POST",
           headers: {
@@ -4519,7 +4520,7 @@ function SystemMonitoringPage({ token }) {
       setError("");
 
       const response = await fetch(
-        "http://127.0.0.1:8000/admin/system-monitoring",
+        ""+API_URL+"admin/system-monitoring",
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -4729,12 +4730,12 @@ function AdminDashboard({ onLogout, email, token, activePage, setActivePage }) {
 
       try {
         const [notificationsResponse, countResponse] = await Promise.all([
-          fetch("http://127.0.0.1:8000/notifications", {
+          fetch(""+API_URL+"notifications", {
             headers: {
               Authorization: `Bearer ${token}`,
             },
           }),
-          fetch("http://127.0.0.1:8000/notifications/unread-count", {
+          fetch(""+API_URL+"notifications/unread-count", {
             headers: {
               Authorization: `Bearer ${token}`,
             },
@@ -4767,7 +4768,7 @@ function AdminDashboard({ onLogout, email, token, activePage, setActivePage }) {
 
     try {
       const response = await fetch(
-        `http://127.0.0.1:8000/notifications/${notificationId}/read`,
+        `"+API_URL+"notifications/${notificationId}/read`,
         {
           method: "PATCH",
           headers: {
