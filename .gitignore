@@ -1,1 +1,29 @@
+# Secrets
+.env
+.env.*
+!.env.example
 
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+venv/
+.venv/
+
+# Frontend
+node_modules/
+dist/
+
+# Uploaded files
+backend/uploads/
+
+# Database backups
+*.dump
+*.sql
+
+# Backup files
+*.backup
+backend_backup_milestone1/
+backend/main_backup.py
+backend/main_before_activity.py
+docker-compose.yml.backup
