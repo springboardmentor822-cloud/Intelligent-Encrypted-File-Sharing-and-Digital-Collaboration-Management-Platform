@@ -1401,7 +1401,7 @@ async function copyShareLink() {
     }
 
     const response = await fetch(
-      `"+API_URL+"files/${file.id}/download`,
+      `${API_URL}/files/${file.id}/download`,
       {
         method: "GET",
         headers: {
