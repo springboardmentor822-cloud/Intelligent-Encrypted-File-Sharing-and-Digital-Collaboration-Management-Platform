@@ -779,7 +779,7 @@ function SharedByMe({ token }) {
     async function fetchSharedFiles() {
       try {
         const response = await fetch(
-          ${API_URL}/shared-by-me",
+          `${API_URL}/shared-by-me`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -970,7 +970,7 @@ function SharedByMe({ token }) {
     if (!token) return;
 
     try {
-      const response = await fetch(${API_URL}/files", {
+      const response = await fetch(`${API_URL}/files`, {
         method: "GET",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -1019,7 +1019,7 @@ useEffect(() => {
 
     try {
       const response = await fetch(
-        ${API_URL}/dashboard/stats",
+       `${API_URL}/dashboard/stats`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -1048,7 +1048,7 @@ useEffect(() => {
 
     try {
       const response = await fetch(
-        ${API_URL}/shared-by-me",
+        `${API_URL}/shared-by-me`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -1083,12 +1083,12 @@ useEffect(() => {
 
     try {
       const [notificationsResponse, countResponse] = await Promise.all([
-        fetch(${API_URL}/notifications", {
+        fetch(`${API_URL}/notifications`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
         }),
-        fetch(${API_URL}/notifications/unread-count", {
+        fetch(`${API_URL}/notifications/unread-count`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -1195,7 +1195,7 @@ const allowed = selected.filter(
       const formData = new FormData();
       formData.append("file", file);
 
-      const response = await fetch(${API_URL}/upload", {
+      const response = await fetch(`${API_URL}/upload`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -1213,7 +1213,7 @@ const allowed = selected.filter(
     }
 
     const filesResponse = await fetch(
-      ${API_URL}/files",
+      `${API_URL}/files`,
       {
         method: "GET",
         headers: {
@@ -2058,7 +2058,7 @@ function SecurityPage({ token }) {
         setError("");
 
         const response = await fetch(
-          ${API_URL}/admin/security/events?limit=100",
+          `${API_URL}/admin/security/events?limit=100`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -2815,7 +2815,7 @@ function AdminSharingReportsPage({ token }) {
         setError("");
 
         const response = await fetch(
-          ${API_URL}/admin/sharing-reports",
+          `${API_URL}/admin/sharing-reports`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -3124,7 +3124,7 @@ function AdminUserManagementPage({ token }) {
       setLoading(true);
       setError("");
 
-      const response = await fetch(${API_URL}/admin/users", {
+      const response = await fetch(`${API_URL}/admin/users`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -3218,7 +3218,7 @@ function AdminFileManagementPage({ token }) {
       setError("");
 
       const response = await fetch(
-        ${API_URL}/admin/files",
+        `${API_URL}/admin/files`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -3532,7 +3532,7 @@ function AdminAnalyticsPage({ token, title = "Admin Analytics" }) {
 
       try {
         const response = await fetch(
-          ${API_URL}/admin/dashboard/stats",
+          `${API_URL}/admin/dashboard/stats`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -4072,7 +4072,7 @@ function StorageAnalyticsPage({ token }) {
         setError("");
 
         const response = await fetch(
-          ${API_URL}/admin/dashboard/stats",
+          `${API_URL}/admin/dashboard/stats`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -4395,7 +4395,7 @@ function AdminSettingsPage({ token }) {
       setLoading(true);
 
       const response = await fetch(
-        ${API_URL}/admin/change-password",
+        `${API_URL}/admin/change-password`,
         {
           method: "POST",
           headers: {
@@ -4520,7 +4520,7 @@ function SystemMonitoringPage({ token }) {
       setError("");
 
       const response = await fetch(
-        ${API_URL}/admin/system-monitoring",
+        `${API_URL}/admin/system-monitoring`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -4730,12 +4730,12 @@ function AdminDashboard({ onLogout, email, token, activePage, setActivePage }) {
 
       try {
         const [notificationsResponse, countResponse] = await Promise.all([
-          fetch(${API_URL}/notifications", {
+          fetch(`${API_URL}/notifications`, {
             headers: {
               Authorization: `Bearer ${token}`,
             },
           }),
-          fetch(${API_URL}/notifications/unread-count", {
+          fetch(`${API_URL}/notifications/unread-count`, {
             headers: {
               Authorization: `Bearer ${token}`,
             },
