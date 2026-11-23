@@ -3706,7 +3706,7 @@ function SuspiciousActivityPage({ token }) {
       }
 
       const response = await fetch(
-        `"+API_URL+"admin/suspicious-activity?${params.toString()}`,
+        `${API_URL}/admin/suspicious-activity?${params.toString()}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
