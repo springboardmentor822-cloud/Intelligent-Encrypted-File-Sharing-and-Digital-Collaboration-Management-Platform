@@ -3870,7 +3870,7 @@ function AdminReportsPage({ token }) {
       if (endDate) params.append("end_date", endDate);
 
       const response = await fetch(
-        `"+API_URL+"admin/reports?${params.toString()}`,
+        `${API_URL}/admin/reports?${params.toString()}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
