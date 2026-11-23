@@ -2649,7 +2649,7 @@ if (startDate) params.append("start_date", startDate);
 if (endDate) params.append("end_date", endDate);
 
 const response = await fetch(
-  `"+API_URL+"audit-logs/filter?${params.toString()}`,
+  `${API_URL}/audit-logs/filter?${params.toString()}`,
   {
     headers: {
       Authorization: `Bearer ${token}`,
