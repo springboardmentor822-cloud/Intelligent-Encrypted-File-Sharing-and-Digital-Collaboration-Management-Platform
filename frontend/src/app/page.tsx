@@ -1,6 +1,23 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
+import {
+  PieChart,
+  Pie,
+  Cell,
+  Tooltip,
+  Legend,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  ResponsiveContainer,
+  RadialBarChart,
+  RadialBar,
+  LineChart,
+  Line,
+} from "recharts";
 import { api } from "@/lib/api";
 import {
   Shield,
@@ -1036,7 +1053,7 @@ export default function TrustShareApp() {
                     { id: "analytics", label: "Storage Analytics", icon: HardDrive },
                     { id: "reports", label: "Activity Reports", icon: FileText },
                     { id: "users", label: "User Management", icon: Users },
-                    { id: "files", label: "File Registry", icon: Layers },
+                    { id: "files", label: "Secure File Registry", icon: Layers },
                     { id: "logs", label: "Audit Logs", icon: Activity },
                   ].map((item) => {
                     const Icon = item.icon;
@@ -2682,10 +2699,10 @@ export default function TrustShareApp() {
                 </p>
                 <div className="space-y-1">
                   {[
-                    { id: "files", label: "My Files", icon: Layers },
-                    { id: "shares", label: "Shared Links", icon: Link2 },
+                    { id: "files", label: "Secure Files (Vault)", icon: Layers },
+                    { id: "shares", label: "Secure File Sharing", icon: Link2 },
                     { id: "analytics", label: "File Analytics", icon: BarChart3 },
-                    { id: "security", label: "Security", icon: Shield },
+                    { id: "security", label: "Security Architecture", icon: Shield },
                   ].map((item) => {
                     const Icon = item.icon;
                     return (
@@ -2791,7 +2808,7 @@ export default function TrustShareApp() {
                   <div>
                     <h2 className="text-2xl font-extrabold text-white tracking-tight flex items-center gap-2.5">
                       <Link2 className="w-6 h-6 text-emerald-400" />
-                      <span>Shared Links & Access Controls</span>
+                      <span>Secure File Sharing & Access Controls</span>
                     </h2>
                     <p className="text-xs text-slate-400 mt-1">
                       Manage time-limited sharing tokens, monitor download counts, and revoke active links immediately
@@ -2894,45 +2911,216 @@ export default function TrustShareApp() {
               </div>
             )}
 
-            {/* VIEW 2: USER FILE ANALYTICS (Real Values) */}
-            {userTab === "analytics" && (
-              <div className="space-y-6">
-                <div>
-                  <h2 className="text-2xl font-extrabold text-white tracking-tight flex items-center gap-2.5">
-                    <BarChart3 className="w-6 h-6 text-emerald-400" />
-                    <span>File Analytics</span>
-                  </h2>
-                  <p className="text-xs text-slate-400 mt-1">
-                    Live insights about your private file storage and upload activity.
-                  </p>
-                </div>
+            {/* VIEW 2: USER FILE ANALYTICS (Real Values + Charts) */}
+            {userTab === "analytics" && (() => {
+              // ── derived chart data ──────────────────────────────────────────
+              const fileTypeCounts: Record<string, number> = {};
+              files.forEach((f) => {
+                const ext = f.original_filename.split(".").pop()?.toLowerCase() || "other";
+                const bucket =
+                  ext === "pdf" ? "PDF" :
+                  ["doc","docx","txt"].includes(ext) ? "Docs" :
+                  ["xls","xlsx","csv"].includes(ext) ? "Sheets" :
+                  ["png","jpg","jpeg","svg","webp"].includes(ext) ? "Images" : "Other";
+                fileTypeCounts[bucket] = (fileTypeCounts[bucket] || 0) + 1;
+              });
+              const fileTypePieData = Object.entries(fileTypeCounts).map(([name, value]) => ({ name, value }));
+              const PIE_COLORS = ["#10b981","#3b82f6","#f59e0b","#8b5cf6","#64748b"];
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <div className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-2">
-                    <span className="text-xs text-slate-400">Total Storage Used</span>
-                    <h3 className="text-2xl font-bold text-white">{totalSizeMB} MB of 50 MB</h3>
-                    <p className="text-[10px] text-slate-500">{quotaPercent}% capacity</p>
+              const usedMB = parseFloat(totalSizeMB);
+              const freeMB = parseFloat((50 - usedMB).toFixed(2));
+              const storageDonut = [
+                { name: "Used", value: usedMB, fill: "#10b981" },
+                { name: "Free", value: freeMB, fill: "#1e293b" },
+              ];
+
+              // Share link status breakdown
+              const activeLinks  = userShareLinks.filter(l => !l.is_revoked && new Date(l.expires_at) >= new Date()).length;
+              const expiredLinks = userShareLinks.filter(l => !l.is_revoked && new Date(l.expires_at) < new Date()).length;
+              const revokedLinks = userShareLinks.filter(l => l.is_revoked).length;
+              const shareStatusData = [
+                { name: "Active",  count: activeLinks,  fill: "#10b981" },
+                { name: "Expired", count: expiredLinks, fill: "#f59e0b" },
+                { name: "Revoked", count: revokedLinks, fill: "#ef4444" },
+              ];
+
+              // Upload timeline – group files by date
+              const dateMap: Record<string, number> = {};
+              files.forEach((f) => {
+                const d = f.uploaded_at ? f.uploaded_at.slice(0, 10) : "Unknown";
+                dateMap[d] = (dateMap[d] || 0) + 1;
+              });
+              const uploadTimeline = Object.entries(dateMap)
+                .sort(([a], [b]) => a.localeCompare(b))
+                .slice(-14)
+                .map(([date, count]) => ({ date: date.slice(5), count }));
+
+              // Radial bar for quota
+              const radialData = [{ name: "Used", value: quotaPercent, fill: quotaPercent > 80 ? "#ef4444" : quotaPercent > 50 ? "#f59e0b" : "#10b981" }];
+
+              return (
+                <div className="space-y-6">
+                  <div>
+                    <h2 className="text-2xl font-extrabold text-white tracking-tight flex items-center gap-2.5">
+                      <BarChart3 className="w-6 h-6 text-emerald-400" />
+                      <span>File Analytics</span>
+                    </h2>
+                    <p className="text-xs text-slate-400 mt-1">
+                      Live insights about your private file storage and upload activity.
+                    </p>
                   </div>
-                  <div className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-2">
-                    <span className="text-xs text-slate-400">Total Uploads</span>
-                    <h3 className="text-2xl font-bold text-white">{files.length} files</h3>
-                    <p className="text-[10px] text-slate-500">Active vault documents</p>
+
+                  {/* KPI cards */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-1">
+                      <span className="text-xs text-slate-400">Total Storage Used</span>
+                      <h3 className="text-2xl font-bold text-white">{totalSizeMB} MB</h3>
+                      <p className="text-[10px] text-slate-500">of 50 MB · {quotaPercent}% capacity</p>
+                    </div>
+                    <div className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-1">
+                      <span className="text-xs text-slate-400">Encrypted Files</span>
+                      <h3 className="text-2xl font-bold text-white">{files.length}</h3>
+                      <p className="text-[10px] text-slate-500">AES-256-GCM vault documents</p>
+                    </div>
+                    <div className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-1">
+                      <span className="text-xs text-slate-400">Storage Remaining</span>
+                      <h3 className="text-2xl font-bold text-white">{freeMB} MB</h3>
+                      <p className="text-[10px] text-slate-500">Available vault quota</p>
+                    </div>
+                    <div className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-1">
+                      <span className="text-xs text-slate-400">Share Links</span>
+                      <h3 className="text-2xl font-bold text-white">{userShareLinks.length}</h3>
+                      <p className="text-[10px] text-emerald-400">{activeLinks} active · {expiredLinks} expired</p>
+                    </div>
                   </div>
-                  <div className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-2">
-                    <span className="text-xs text-slate-400">Storage Remaining</span>
-                    <h3 className="text-2xl font-bold text-white">
-                      {(50 - parseFloat(totalSizeMB)).toFixed(2)} MB
-                    </h3>
-                    <p className="text-[10px] text-slate-500">Available vault quota</p>
+
+                  {/* Charts row 1 */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    {/* Storage Quota Donut */}
+                    <div className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800">
+                      <h4 className="text-sm font-semibold text-slate-200 mb-4">Storage Quota</h4>
+                      {files.length === 0 ? (
+                        <div className="h-48 flex items-center justify-center text-slate-500 text-xs">Upload files to see storage usage</div>
+                      ) : (
+                        <ResponsiveContainer width="100%" height={200}>
+                          <PieChart>
+                            <Pie
+                              data={storageDonut}
+                              cx="50%"
+                              cy="50%"
+                              innerRadius={55}
+                              outerRadius={80}
+                              startAngle={90}
+                              endAngle={-270}
+                              dataKey="value"
+                              stroke="none"
+                            >
+                              {storageDonut.map((entry, i) => (
+                                <Cell key={i} fill={entry.fill} />
+                              ))}
+                            </Pie>
+                            <Tooltip
+                              contentStyle={{ background: "#0f172a", border: "1px solid #1e293b", borderRadius: 10, fontSize: 12 }}
+                              formatter={(v: any) => [`${v} MB`, ""]}
+                            />
+                            <Legend
+                              formatter={(value) => <span style={{ color: "#94a3b8", fontSize: 11 }}>{value}</span>}
+                            />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      )}
+                      <p className="text-center text-xs text-slate-500 mt-1">{quotaPercent}% used of 50 MB</p>
+                    </div>
+
+                    {/* File Type Breakdown Pie */}
+                    <div className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800">
+                      <h4 className="text-sm font-semibold text-slate-200 mb-4">File Type Breakdown</h4>
+                      {fileTypePieData.length === 0 ? (
+                        <div className="h-48 flex items-center justify-center text-slate-500 text-xs">No files uploaded yet</div>
+                      ) : (
+                        <ResponsiveContainer width="100%" height={200}>
+                          <PieChart>
+                            <Pie
+                              data={fileTypePieData}
+                              cx="50%"
+                              cy="50%"
+                              outerRadius={80}
+                              dataKey="value"
+                              label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                              labelLine={false}
+                              stroke="none"
+                            >
+                              {fileTypePieData.map((_, i) => (
+                                <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                              ))}
+                            </Pie>
+                            <Tooltip
+                              contentStyle={{ background: "#0f172a", border: "1px solid #1e293b", borderRadius: 10, fontSize: 12 }}
+                            />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      )}
+                    </div>
                   </div>
-                  <div className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-2">
-                    <span className="text-xs text-slate-400">Account Access</span>
-                    <h3 className="text-2xl font-bold text-white capitalize">{user.role}</h3>
-                    <p className="text-[10px] text-emerald-400">Role-Based Access Active</p>
+
+                  {/* Charts row 2 */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    {/* Upload Timeline */}
+                    <div className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800">
+                      <h4 className="text-sm font-semibold text-slate-200 mb-4">Upload Timeline</h4>
+                      {uploadTimeline.length === 0 ? (
+                        <div className="h-48 flex items-center justify-center text-slate-500 text-xs">No upload history yet</div>
+                      ) : (
+                        <ResponsiveContainer width="100%" height={200}>
+                          <LineChart data={uploadTimeline}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                            <XAxis dataKey="date" tick={{ fill: "#64748b", fontSize: 10 }} axisLine={false} tickLine={false} />
+                            <YAxis tick={{ fill: "#64748b", fontSize: 10 }} axisLine={false} tickLine={false} allowDecimals={false} />
+                            <Tooltip
+                              contentStyle={{ background: "#0f172a", border: "1px solid #1e293b", borderRadius: 10, fontSize: 12 }}
+                              labelStyle={{ color: "#94a3b8" }}
+                            />
+                            <Line
+                              type="monotone"
+                              dataKey="count"
+                              stroke="#10b981"
+                              strokeWidth={2}
+                              dot={{ fill: "#10b981", r: 3 }}
+                              name="Uploads"
+                            />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      )}
+                    </div>
+
+                    {/* Share Link Status Bar Chart */}
+                    <div className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800">
+                      <h4 className="text-sm font-semibold text-slate-200 mb-4">Share Link Status</h4>
+                      {userShareLinks.length === 0 ? (
+                        <div className="h-48 flex items-center justify-center text-slate-500 text-xs">No share links created yet</div>
+                      ) : (
+                        <ResponsiveContainer width="100%" height={200}>
+                          <BarChart data={shareStatusData} barCategoryGap="40%">
+                            <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                            <XAxis dataKey="name" tick={{ fill: "#64748b", fontSize: 11 }} axisLine={false} tickLine={false} />
+                            <YAxis tick={{ fill: "#64748b", fontSize: 10 }} axisLine={false} tickLine={false} allowDecimals={false} />
+                            <Tooltip
+                              contentStyle={{ background: "#0f172a", border: "1px solid #1e293b", borderRadius: 10, fontSize: 12 }}
+                              cursor={{ fill: "rgba(255,255,255,0.03)" }}
+                            />
+                            <Bar dataKey="count" radius={[6, 6, 0, 0]} name="Links">
+                              {shareStatusData.map((entry, i) => (
+                                <Cell key={i} fill={entry.fill} />
+                              ))}
+                            </Bar>
+                          </BarChart>
+                        </ResponsiveContainer>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
 
             {/* VIEW 3: USER FILE VAULT */}
