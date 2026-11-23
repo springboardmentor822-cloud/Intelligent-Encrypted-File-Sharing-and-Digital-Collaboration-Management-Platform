@@ -4274,7 +4274,7 @@ function AdminRecentSecurityEvents({ token }) {
         setError("");
 
         const response = await fetch(
-          ${API_URL}/admin/security/events?limit=10",
+          `${API_URL}/admin/security/events?limit=10`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
