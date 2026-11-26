@@ -1,0 +1,61 @@
+
+# Python virtual environments
+.venv/
+venv/
+backend/venv/
+backend/.venv/
+
+# Python cache
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Node.js dependencies
+node_modules/
+frontend/node_modules/
+
+# Build output
+dist/
+build/
+
+# User-uploaded files
+backend/uploads/
+
+# IDE workspace settings
+.vscode/
+.idea/
+
+# Test and coverage artifacts
+test-results/
+playwright-report/
+coverage/
+
+# Backup copies
+*.bak
+*.bak.*
+*.backup*
+*-backup*
+*.before-*
+*.before_*
+
+# Review archives
+*.zip
+
+# Logs
+*.log
+
+# OS-generated files
+.DS_Store
+Thumbs.db
+
+# Temporary scratch file
+backend/migrations/p.txt
+
+# Accidental historical JSX backup
+frontend/src/App.jsx.pptx-jsx-fix-*

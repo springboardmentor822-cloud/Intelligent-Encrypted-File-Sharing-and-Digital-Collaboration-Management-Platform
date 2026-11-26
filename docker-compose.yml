@@ -1,0 +1,44 @@
+
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: trustshare-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: trustshare
+      MYSQL_USER: trustshare_user
+      MYSQL_PASSWORD: change_this_dev_password
+      MYSQL_ROOT_PASSWORD: change_this_root_password
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u trustshare_user -pchange_this_dev_password --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  mongodb:
+    image: mongo:7
+    container_name: trustshare-mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+
+  redis:
+    image: redis:7
+    container_name: trustshare-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+volumes:
+  mysql_data:
+  mongodb_data:
+  redis_data:
