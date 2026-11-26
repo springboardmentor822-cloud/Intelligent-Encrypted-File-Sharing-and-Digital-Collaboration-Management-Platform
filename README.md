@@ -170,37 +170,37 @@ Monitoring routes are registered at the API root: notification actions include `
 
 FastAPI's default interactive OpenAPI UI is available at `http://localhost:8000/docs`, with the schema at `/openapi.json` and ReDoc at `/redoc` when the service is running.
 
-## **Repository layout**
+## Repository layout
 
-```
+```text
 .
-â”œâ”€â”€ backend/
-â”‚   â”œâ”€â”€ app/
-â”‚   â”‚   â”œâ”€â”€ main.py                  # FastAPI app, startup, middleware, router registration
-â”‚   â”‚   â”œâ”€â”€ routes_*.py              # Authentication, files, folders, recovery, admin, monitoring
-â”‚   â”‚   â”œâ”€â”€ auth.py                  # JWT, password hashing, role dependencies, OAuth clients
-â”‚   â”‚   â”œâ”€â”€ database.py              # MySQL, MongoDB, Redis connections
-â”‚   â”‚   â”œâ”€â”€ models.py, schemas.py    # SQLAlchemy models and Pydantic schemas
-â”‚   â”‚   â”œâ”€â”€ services/                # Encryption and object-storage adapters
-â”‚   â”‚   â”œâ”€â”€ activity.py              # Activity, audit, notification, and security event helpers
-â”‚   â”‚   â””â”€â”€ *_migration*.py           # Schema and legacy/key migration utilities
-â”‚   â”œâ”€â”€ migrations/                   # SQL/Python migration scripts
-â”‚   â”œâ”€â”€ tests/                        # Backend unit and route tests
-â”‚   â”œâ”€â”€ requirements.txt
-â”‚   â””â”€â”€ .env.example                 # Variable names and safe example configuration
-â”œâ”€â”€ docs/
-â”‚   â””â”€â”€ MILESTONE_2_AND_3_VERIFICATION.md
-â”œâ”€â”€ frontend/
-â”‚   â”œâ”€â”€ src/                          # React screens, dashboards, API client, styles, renderers
-â”‚   â”œâ”€â”€ e2e/                           # Playwright browser workflow specs
-â”‚   â”œâ”€â”€ package.json
-â”‚   â””â”€â”€ vite.config.js
-â”œâ”€â”€ docker-compose.yml                 # MySQL, MongoDB, Redis for local development
-â”œâ”€â”€ LICENSE
-â””â”€â”€ README.md
+├── backend/
+│   ├── app/
+│   │   ├── main.py
+│   │   ├── routes_*.py
+│   │   ├── auth.py
+│   │   ├── database.py
+│   │   ├── models.py
+│   │   ├── schemas.py
+│   │   ├── services/
+│   │   └── activity.py
+│   ├── migrations/
+│   ├── tests/
+│   ├── requirements.txt
+│   └── .env.example
+├── docs/
+│   └── MILESTONE_2_AND_3_VERIFICATION.md
+├── frontend/
+│   ├── src/
+│   ├── e2e/
+│   ├── package.json
+│   └── vite.config.js
+├── docker-compose.yml
+├── LICENSE
+└── README.md
 ```
-Generated output, dependencies, caches, and backup copies are intentionally omitted from this overview.
 
+Generated output, dependencies, caches, and backup copies are intentionally omitted from this overview.
 ## **Requirements**
 
 - Git
