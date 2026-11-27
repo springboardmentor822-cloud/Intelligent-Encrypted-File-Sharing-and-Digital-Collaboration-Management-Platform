@@ -8,8 +8,7 @@ Every file is locked with its own key before it reaches storage, every share can
 <div align="justify">
 
 [**Live demo**](https://trustshare-lime.vercel.app/) · [**Admin gate**](https://trustshare-lime.vercel.app/admin/login) · [**Demo video**](https://drive.google.com/file/d/1KQrzR44yzvOOUSZ2tWTn1Qff6twrgKwD/view?usp=sharing)
-## TrustShare
-**A secure file sharing platform**:
+## TrustShare: **A secure file sharing platform**:
 Strong File security provided as files are encrypted with AES-256-GCM per-file data key wrapped by a versioned master key before reaching storage.
 
 - **Files are encrypted before storage.** Whatever sits on disk or in a bucket is unreadable ciphertext.
@@ -58,7 +57,9 @@ Strong File security provided as files are encrypted with AES-256-GCM per-file d
 
 ## How the encryption works
 
+
 <img width="1100" height="800" alt="image" src="https://github.com/user-attachments/assets/d88ae36a-c73c-443d-8478-37d7d8218867" />
+
 
 
 **Why envelope encryption?** If the master key is rotated, only the small wrapped keys are re-wrapped, not
@@ -123,6 +124,8 @@ python -m venv .venv
 pip install -r requirements.txt
 copy .env.example .env
 
+```
+
 ### 2. Frontend
 
 ```powershell
@@ -131,9 +134,6 @@ npm install
 npm run dev
 ```
 
-Open the address Vite prints. Requests to `/api` are proxied to the backend on port 8000.
-
-If Vite complains about a missing import, run `npm run doctor`. It lists any file that does not resolve.
 
 ### 3. Try it
 
@@ -148,7 +148,6 @@ If Vite complains about a missing import, run `npm run doctor`. It lists any fil
 export DB_PASSWORD=choose-a-strong-password
 docker compose up --build
 ```
-
 
 ## Security model
 
