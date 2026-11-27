@@ -108,6 +108,10 @@ trustshare/
 └── README.md
 ```
 
+## SYSTEM ARCHITECTURE: 
+
+<img width="1300" height="980" alt="image" src="https://github.com/user-attachments/assets/84d4705a-4062-40e3-97b2-7aa26bcef69b" />
+
 
 ## Getting started
 
