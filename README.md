@@ -5,12 +5,10 @@
 **An encrypted file-sharing and collaboration platform.**
 Every file is locked with its own key before it reaches storage, every share can expire, and every action leaves a trail.
 
+<div align="center">
 
 [**Live demo**](https://trustshare-lime.vercel.app/) · [**Admin gate**](https://trustshare-lime.vercel.app/admin/login) · [**Demo video**](https://drive.google.com/file/d/1KQrzR44yzvOOUSZ2tWTn1Qff6twrgKwD/view?usp=sharing)
 
-</div>
-
----
 
 ## Why TrustShare
 
