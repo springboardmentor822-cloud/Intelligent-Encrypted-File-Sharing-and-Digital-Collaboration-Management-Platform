@@ -98,7 +98,6 @@ every file. If one data key were ever exposed, only that single file is affected
 | Deployment | Vercel (frontend), Render (backend), Docker |
 | Testing | pytest, end-to-end smoke script |
 
----
 
 ## Project structure
 
@@ -129,7 +128,6 @@ trustshare/
 └── README.md
 ```
 
----
 
 ## Getting started
 
@@ -192,63 +190,6 @@ export DB_PASSWORD=choose-a-strong-password
 docker compose up --build
 ```
 
-> The compose file has not been verified in every environment, so review it before relying on it.
-
----
-
-## Configuration
-
-All settings live in `backend/.env` (copy from `.env.example`). Never commit this file.
-
-| Variable | Purpose |
-|---|---|
-| `TS_ENV` | `development` or `production` |
-| `TS_DATABASE_URL` | SQLite by default; use a PostgreSQL URL in production |
-| `TS_JWT_SECRET` | Token signing secret (**required in production**) |
-| `TS_MASTER_KEYS` | Master keys as `version:base64(32 bytes)`, comma separated (**required in production**) |
-| `TS_ACTIVE_KEY_VERSION` | Which master key wraps new data keys |
-| `TS_STORAGE_BACKEND` | `local` or `s3` |
-| `TS_S3_BUCKET`, `TS_S3_REGION`, `TS_S3_PREFIX` | S3 settings. AWS credentials come from the standard AWS environment or role. |
-| `TS_CORS_ORIGINS`, `TS_FRONTEND_URL`, `TS_PUBLIC_BASE_URL` | Origins and public URLs |
-| `TS_GOOGLE_*`, `TS_MICROSOFT_*` | OAuth client IDs and secrets |
-| `TS_ADMIN_VISIT_PASSWORD` | Admin gate password. **Change the default before deploying.** |
-| `TS_ADMIN_VISIT_MINUTES` | Lifetime of an admin visit (default 60) |
-| `TS_MAX_UPLOAD_MB`, `TS_USER_QUOTA_MB` | Upload size and per-user quota |
-| `TS_MONGO_URL` | Optional, enables the MongoDB mirror |
-| `TS_HTTPS_ENFORCED`, `TS_TRUST_PROXY` | Enable only behind a TLS-terminating, trusted proxy |
-
-Generate production secrets:
-
-```bash
-# JWT secret
-python -c "import secrets; print(secrets.token_urlsafe(64))"
-
-# master key (KEK), version 1
-python -c "import os,base64; print('1:'+base64.b64encode(os.urandom(32)).decode())"
-```
-
----
-
-## API at a glance
-
-Full, interactive documentation is available at `/api/docs`. The main areas:
-
-| Area | Examples |
-|---|---|
-| **Auth** `/api/auth` | `POST /register`, `POST /login`, `POST /logout`, `POST /forgot-password`, `GET /oauth/{provider}/login` |
-| **Files** `/api` | `POST /files/upload`, `GET /files`, `GET /files/{id}/download`, `GET /files/{id}/preview`, `POST /folders` |
-| **Shares** `/api` | `POST /shares`, `GET /shares/mine`, `GET /shares/with-me`, `POST /shares/{id}/revoke`, `POST /shares/{id}/verify` |
-| **Public links** `/api/public/shares` | Token-based access, rate limited |
-| **Secure Folder** `/api/secure-folder` | `POST /setup`, `POST /unlock`, `POST /lock`, `POST /upload` |
-| **Activity** `/api/activity` | User and file activity records |
-| **Audit** `/api/audit-logs` | `GET /`, `GET /user/{id}`, `GET /file/{id}`, `GET /filter` (admin only) |
-| **Notifications** `/api/notifications` | `GET /`, `GET /unread-count`, `POST /{id}/read`, `POST /read-all` |
-| **Reports** `/api/reports` | `GET /uploads`, `GET /downloads`, `GET /sharing`, `GET /security` |
-| **Analytics** `/api/analytics` | `GET /storage`, `GET /users/storage`, `GET /files`, `GET /downloads`, `GET /sharing` |
-| **Security monitoring** `/api/security-monitoring` | `GET /rules`, `GET /events`, `GET /summary` |
-| **Admin** `/api/admin` | Users, files, system status, encryption registry and verification, key rotation |
-
----
 
 ## Security model
 
@@ -270,7 +211,6 @@ Thresholds are configurable in the backend settings.
 
 **Hardening.** Responses carry `nosniff`, `X-Frame-Options: DENY` and `no-referrer` headers, and HSTS can be enabled when running behind HTTPS. Sensitive routes are rate limited, and admin actions are audited.
 
----
 
 ## Testing
 
@@ -284,7 +224,6 @@ npm run doctor      # verifies every local import resolves
 npm run build       # type-check and production bundle
 ```
 
----
 
 ## Milestones
 
@@ -324,16 +263,6 @@ TrustShare was built in three stages.
 - A unified Admin Dashboard bringing it all together, plus the Security Dashboard with the Encryption and Key Registry and live threat LED
 </details>
 
----
-
-## Known limitations
-
-- The free hosting tier for the backend can sleep when idle, so the first request after a quiet period may be slow.
-- Rate limiting is in-process, which suits a single instance. A shared store such as Redis would be needed for multiple instances.
-- Email delivery is optional and does nothing until SMTP settings are provided.
-- The MongoDB mirror is best-effort. The relational database is the source of truth.
-
----
 
 ## License
 
