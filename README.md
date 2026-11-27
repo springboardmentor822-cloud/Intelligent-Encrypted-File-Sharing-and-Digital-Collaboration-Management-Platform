@@ -44,7 +44,7 @@ git clone <repository-url>
 cd TrustShare_Milestone3
 ```
 
-### Virtual environment setup and backend dependencies
+## Virtual environment setup
 
 On Windows PowerShell:
 
@@ -66,9 +66,15 @@ python -m pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-Backend requirements are `fastapi` and `uvicorn[standard]`, with version ranges in [`backend/requirements.txt`](backend/requirements.txt).
+## Dependencies
 
-### Frontend dependencies
+The backend dependencies are `fastapi` and `uvicorn[standard]`, with version ranges in [`backend/requirements.txt`](backend/requirements.txt). Install them after activating the backend virtual environment:
+
+```bash
+pip install -r requirements.txt
+```
+
+The frontend dependencies are managed by npm and listed in [`frontend/package.json`](frontend/package.json). The lockfile is included for repeatable installs:
 
 In a second terminal, from the repository root:
 
@@ -207,8 +213,6 @@ In a second terminal, from the repository root:
 cd frontend
 npm install
 ```
-
-Frontend packages and scripts are listed in [`frontend/package.json`](frontend/package.json); the lockfile is included for repeatable installs.
 
 ## Database setup
 
@@ -418,6 +422,254 @@ Rules are configured in [`backend/app/security_monitoring/detection.py`](backend
 - Add pagination and export formats for reports and audit records.
 - Improve notification delivery with retry handling and delivery status tracking.
 - Add deployment documentation, container support, and CI checks.
+
+## License
+
+See [LICENSE](LICENSE).
+# TrustShare — Milestone 3
+
+TrustShare Milestone 3 is a monitoring dashboard and API for file activity, audit history, notifications, reports, storage analytics, and suspicious activity detection.
+
+> **Scope:** This repository provides the Milestone 3 monitoring experience. It does not implement file upload, encryption, authentication, or secure-sharing workflows from earlier milestones. The React dashboard currently displays local demo data and is not connected to the API. The API can receive activity events from those workflows.
+
+## Project overview
+
+The FastAPI backend records activity and audit events in SQLite, creates notifications, evaluates configurable security rules, and serves reporting and analytics endpoints. The React dashboard is a separate, self-contained demo interface.
+
+## Features
+
+- Dashboard views for workspace activity, storage, downloads, sharing, and security.
+- Activity and audit event recording, filtering, and per-user or per-file history.
+- In-app notifications and optional SMTP email delivery.
+- Detection of repeated failed logins, excessive downloads, unauthorized access, and expired or revoked link attempts.
+- Security event review and resolution.
+- Activity and security reports, plus storage, file, download, and sharing analytics.
+- Interactive API documentation at `/docs`.
+- Automatic SQLite schema creation and illustrative demo data on first startup.
+
+## Technologies
+
+- **Frontend:** React 18, Vite, Recharts, Lucide React
+- **Backend:** Python, FastAPI, Uvicorn, Pydantic
+- **Database:** SQLite (Python standard library)
+- **Deployment:** Docker Compose and Nginx
+
+## Repository structure
+
+```text
+.
+├── .github/workflows/       # Frontend build and backend checks
+├── backend/                 # FastAPI application and detection rules
+├── deploy/nginx/            # Static hosting and API proxy configuration
+├── docs/                    # Architecture and deployment notes
+├── frontend/                # React dashboard
+├── scripts/                 # Local development scripts (PowerShell)
+├── .env.example             # Docker Compose environment template
+├── docker-compose.yml       # Container stack
+├── docker-compose.prod.yml  # Production-oriented overrides
+└── README.md
+```
+
+## Installation
+
+### Prerequisites
+
+- Python 3.10 or newer
+- Node.js 18 or newer and npm
+
+Clone the repository and enter its directory:
+
+```bash
+git clone <repository-url>
+cd TrustShare_Milestone3
+```
+
+## Virtual environment setup
+
+Create and activate a backend virtual environment.
+
+On Windows PowerShell:
+
+```powershell
+cd backend
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+```
+
+On macOS or Linux:
+
+```bash
+cd backend
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
+## Dependencies
+
+With the backend virtual environment activated, install the Python requirements:
+
+```bash
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+```
+
+The backend requirements are `fastapi` and `uvicorn[standard]`, with version ranges in [`backend/requirements.txt`](backend/requirements.txt).
+
+Install frontend packages from a second terminal:
+
+```bash
+cd frontend
+npm install
+```
+
+Frontend dependencies and scripts are listed in [`frontend/package.json`](frontend/package.json); `package-lock.json` is included for repeatable installs.
+
+## Database setup
+
+No separate database server or migration command is needed. On API startup, the application creates `backend/trustshare.db` by default, creates its tables, and seeds illustrative activities, notifications, files, and a security event when the activities table is empty.
+
+Set `TRUSTSHARE_DB` to use a different SQLite file path. The local database file is excluded from Git.
+
+## Environment variables
+
+Set these variables in the backend process environment. They are optional unless otherwise noted.
+
+| Variable | Purpose | Default |
+| --- | --- | --- |
+| `TRUSTSHARE_DB` | SQLite database file path | `backend/trustshare.db` |
+| `TRUSTSHARE_ADMIN_TOKEN` | When set, protects admin endpoints using `X-Admin-Token` | Unset; admin endpoints are then unprotected |
+| `TRUSTSHARE_ORIGINS` | Comma-separated CORS origins | `http://localhost:5173` |
+| `SMTP_HOST` | SMTP server; enables email sending | Unset; email disabled |
+| `SMTP_PORT` | SMTP port | `587` |
+| `SMTP_USER` | SMTP username; enables STARTTLS login when set | Unset |
+| `SMTP_PASSWORD` | SMTP password used with `SMTP_USER` | Unset |
+| `SMTP_FROM` | Email sender address | `trustshare@localhost` |
+| `TRUSTSHARE_EMAIL_<USER_ID>` | Email address for a notification recipient | Unset |
+
+For the email variable, uppercase the user ID and replace hyphens with underscores. For example, `u-olivia` maps to `TRUSTSHARE_EMAIL_U_OLIVIA=olivia@example.com`.
+
+Example PowerShell configuration:
+
+```powershell
+$env:TRUSTSHARE_ADMIN_TOKEN = "replace-with-a-local-demo-token"
+$env:TRUSTSHARE_ORIGINS = "http://localhost:5173"
+```
+
+The admin token only protects routes marked as administrator endpoints. Activity creation and notification routes do not have user authentication or authorization in this demo. Integrate trusted identity and access control before exposing the API to real users.
+
+## API endpoints
+
+Administrator endpoints require `X-Admin-Token` when `TRUSTSHARE_ADMIN_TOKEN` is set. If that environment variable is unset, the current implementation allows these requests without a token.
+
+| Method | Endpoint | Access | Purpose |
+| --- | --- | --- | --- |
+| `GET` | `/health` | Public | Health status |
+| `POST` | `/activities` | Event ingestion | Record activity and audit entry; evaluate detection rules and create relevant notifications |
+| `GET` | `/activities` | Admin | List events; filters: `user_id`, `activity_type`, `status`, `start`, `end`, `limit` |
+| `GET` | `/audit-logs` | Admin | Search audit entries; filters: `user_id`, `file_id`, `activity_type`, `status`, `start`, `end`, `limit` |
+| `GET` | `/audit-logs/user/{user_id}` | Admin | Audit history for a user |
+| `GET` | `/audit-logs/file/{file_id}` | Admin | Audit history for a file |
+| `GET` | `/notifications` | Demo user scope | List notifications; filters: `user_id`, `unread_only` |
+| `PATCH` | `/notifications/{notification_id}/read` | Demo user scope | Mark a user's notification as read; accepts `user_id` |
+| `GET` | `/security/events` | Admin | List security events; filters: `severity`, `event_type`, `status`, `user_id` |
+| `PATCH` | `/security/events/{event_id}/resolve` | Admin | Resolve a security event |
+| `GET` | `/reports/activity` | Admin | Activity totals and events; filters: `user_id`, `activity_type`, `start`, `end` |
+| `GET` | `/reports/security` | Admin | Security event totals by severity; filters: `start`, `end` |
+| `GET` | `/analytics/storage` | Admin | Overall storage usage |
+| `GET` | `/analytics/users/storage` | Admin | Storage grouped by file owner |
+| `GET` | `/analytics/files` | Admin | File counts, popular files, uploads by date |
+| `GET` | `/analytics/downloads` | Admin | Download totals and popular files |
+| `GET` | `/analytics/sharing` | Admin | Shared file and link event counts |
+
+Date filters accept timestamp strings comparable to stored ISO 8601 timestamps. The `limit` parameter for activity and audit listings ranges from 1 to 500. OpenAPI docs are available at `/docs`.
+
+## How to run the project
+
+Start the API from the `backend` directory with the virtual environment activated:
+
+```bash
+uvicorn app.main:app --reload
+```
+
+The API is available at `http://127.0.0.1:8000`. Check `http://127.0.0.1:8000/health` or open `http://127.0.0.1:8000/docs`.
+
+In a second terminal, start the dashboard:
+
+```bash
+cd frontend
+npm run dev
+```
+
+Vite prints the dashboard URL, usually `http://localhost:5173`. The dashboard currently uses local demo data and does not call the API.
+
+Create a production frontend build with:
+
+```bash
+cd frontend
+npm run build
+```
+
+### Docker Compose
+
+Install Docker with the Compose plugin, copy `.env.example` to `.env`, and set a private `TRUSTSHARE_ADMIN_TOKEN`. Start the container stack:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d
+```
+
+Open `http://localhost:8080`. The API is proxied through the same host at `/health` and `/docs`. Stop the stack with:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml down
+```
+
+The database persists in the `trustshare-data` Docker volume. More detail is in [`docs/deployment.md`](docs/deployment.md) and [`docs/architecture.md`](docs/architecture.md).
+
+## Sample API requests
+
+Check service health:
+
+```bash
+curl http://127.0.0.1:8000/health
+```
+
+Record a file share (PowerShell users can use `curl.exe`):
+
+```bash
+curl -X POST http://127.0.0.1:8000/activities \
+  -H "Content-Type: application/json" \
+  -d '{"user_id":"u-olivia","username":"Olivia Rhye","activity_type":"share","file_id":"f-001","file_name":"Q4-financial-report.pdf","recipient_user_id":"u-phoenix","description":"Shared Q4 financial report","status":"success","ip_address":"192.0.2.10"}'
+```
+
+List recent activity as an administrator (include the token header if configured):
+
+```bash
+curl "http://127.0.0.1:8000/activities?activity_type=share&limit=20" \
+  -H "X-Admin-Token: replace-with-a-local-demo-token"
+```
+
+Read unread notifications for a demo user:
+
+```bash
+curl "http://127.0.0.1:8000/notifications?user_id=u-olivia&unread_only=true"
+```
+
+Inspect storage analytics:
+
+```bash
+curl http://127.0.0.1:8000/analytics/storage \
+  -H "X-Admin-Token: replace-with-a-local-demo-token"
+```
+
+## Future improvements
+
+- Connect the dashboard to API endpoints and replace hard-coded UI metrics with live data.
+- Add authentication, role-based authorization, and per-user ownership checks.
+- Adopt a production database and schema migrations.
+- Add automated tests for API routes, detection rules, and database behavior.
+- Add pagination and export formats for reports and audit records.
+- Add retry handling and delivery status for email notifications.
+- Expand deployment support and CI checks.
 
 ## License
 
