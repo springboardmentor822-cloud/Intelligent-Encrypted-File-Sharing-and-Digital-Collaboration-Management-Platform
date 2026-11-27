@@ -58,7 +58,7 @@ Strong File security provided as files are encrypted with AES-256-GCM per-file d
 ## How the encryption works
 
 
-<img width="1200" height="700" alt="image" src="https://github.com/user-attachments/assets/d88ae36a-c73c-443d-8478-37d7d8218867" />
+<img width="1300" height="700" alt="image" src="https://github.com/user-attachments/assets/d88ae36a-c73c-443d-8478-37d7d8218867" />
 
 
 
