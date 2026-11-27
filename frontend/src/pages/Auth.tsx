@@ -15,9 +15,9 @@ function Split({ children }: { children: ReactNode }) {
           <img src="https://images.unsplash.com/photo-1633265486064-086b219458ec?auto=format&fit=crop&w=900&q=80" alt="" className="absolute inset-0 h-full w-full object-cover opacity-20" loading="lazy" />
           <div className="relative">
           <Link to="/"><Logo light size={40} /></Link>
-          <h2 className="mt-12 text-5xl font-extrabold leading-tight">Secure<br />File Sharing<br />for a <span className="text-lavender-300">Safer</span><br />Tomorrow</h2>
-          <p className="mt-5 max-w-sm text-slate-200">Upload, store, and share your important files with server-side encryption and complete control.</p>
-          <ul className="mt-9 space-y-5">{[[Lock, "AES-256 Encrypted Storage", "Your files stay private and protected"], [Users, "Controlled Sharing", "Set permissions, passcodes and expiry"], [ShieldCheck, "Track & Monitor", "Audit logs and activity tracking"]].map(([I, t, d]: any) => <li key={t} className="flex items-center gap-4"><span className="grid h-12 w-12 place-items-center rounded-full bg-white/10 ring-1 ring-white/20"><I className="h-5 w-5" /></span><div><p className="font-semibold">{t}</p><p className="text-sm text-slate-300">{d}</p></div></li>)}</ul>
+          <h2 className="mt-12 text-5xl font-extrabold leading-tight">Share<br />Everything.<br />Expose <span className="text-lavender-300">Nothing.</span><br /></h2>
+          <p className="mt-5 max-w-sm text-slate-200">Every file is encrypted with its own key before it's stored. Share by link or with your team, and stay in control of who sees what, and for how long.</p>
+          <ul className="mt-9 space-y-5">{[[Lock, "A Unique Key for Every File", "Each file gets its own AES-256 key"], [Users, "Sharing on Your Terms", "Passcodes, expiry and one-click revoke"], [ShieldCheck, "Always Accountable", "Audit logs, security alerts"]].map(([I, t, d]: any) => <li key={t} className="flex items-center gap-4"><span className="grid h-12 w-12 place-items-center rounded-full bg-white/10 ring-1 ring-white/20"><I className="h-5 w-5" /></span><div><p className="font-semibold">{t}</p><p className="text-sm text-slate-300">{d}</p></div></li>)}</ul>
           </div>
           <div aria-hidden="true" className="pointer-events-none absolute -right-16 bottom-10 w-[22rem] rotate-[-4deg]">
             <Cloud className="mx-auto -mb-6 h-32 w-32 text-lavender-300/80" fill="currentColor" />
