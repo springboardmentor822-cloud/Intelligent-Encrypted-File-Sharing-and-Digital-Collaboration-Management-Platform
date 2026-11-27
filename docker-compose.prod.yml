@@ -1,0 +1,32 @@
+# Production overlay. Requires Docker Compose v2.24+ (uses !reset).
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+# - nginx terminates TLS and is the only public entry point; databases are not published
+# - code is baked into the image (no bind mounts) and files go to AWS S3 (use an IAM role, empty S3_ENDPOINT_URL)
+# - set in .env: ENVIRONMENT, JWT_SECRET, MASTER_KEYS or KEY_PROVIDER=aws_kms + KMS_KEY_ID, S3_BUCKET, S3_REGION, SMTP_*
+services:
+  postgres: {ports: !reset []}
+  mongo: {ports: !reset []}
+  redis: {ports: !reset []}
+  mailhog: {profiles: ["dev-only"], ports: !reset []}
+
+  backend:
+    ports: !reset []
+    volumes: !reset []
+    environment:
+      ENVIRONMENT: production
+      TRUST_PROXY_HEADERS: "true"
+      STORAGE_BACKEND: s3
+    restart: unless-stopped
+
+  frontend:
+    ports: !reset []
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:1.27-alpine
+    depends_on: [backend, frontend]
+    ports: ["80:80", "443:443"]
+    volumes:
+      - ./deploy/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./deploy/certs:/etc/nginx/certs:ro
+    restart: unless-stopped

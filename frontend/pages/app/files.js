@@ -1,0 +1,5 @@
+import AppShell from '@/components/AppShell';
+import FilesBrowser from '@/components/FilesBrowser';
+export default function Page() {
+  return <AppShell title="My Files" subtitle="Everything you’ve uploaded, encrypted at rest." roles={['admin', 'user']}><FilesBrowser view="all" /></AppShell>;
+}

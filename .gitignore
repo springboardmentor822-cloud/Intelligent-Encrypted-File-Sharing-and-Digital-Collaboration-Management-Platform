@@ -1,0 +1,14 @@
+deploy/certs/*.pem
+.env
+__pycache__/
+*.pyc
+node_modules/
+.next/
+.pytest_cache/
+
+# Never commit
+.env
+*.pem
+storage_data/
+.m3-backup/
+deploy/certs/
