@@ -8,8 +8,7 @@ Every file is locked with its own key before it reaches storage, every share can
 <div align="justify">
 
 [**Live demo**](https://trustshare-lime.vercel.app/) · [**Admin gate**](https://trustshare-lime.vercel.app/admin/login) · [**Demo video**](https://drive.google.com/file/d/1KQrzR44yzvOOUSZ2tWTn1Qff6twrgKwD/view?usp=sharing)
-## Why TrustShare
-
+## TrustShare
 **A secure file sharing platform**:
 Strong File security provided as files are encrypted with AES-256-GCM per-file data key wrapped by a versioned master key before reaching storage.
 
@@ -59,17 +58,14 @@ Strong File security provided as files are encrypted with AES-256-GCM per-file d
 
 ## How the encryption works
 
-<img width="931" height="608" alt="image" src="https://github.com/user-attachments/assets/d88ae36a-c73c-443d-8478-37d7d8218867" />
+<img width="931" height="800" alt="image" src="https://github.com/user-attachments/assets/d88ae36a-c73c-443d-8478-37d7d8218867" />
 
 
 **Why envelope encryption?** If the master key is rotated, only the small wrapped keys are re-wrapped, not
 every file. If one data key were ever exposed, only that single file is affected.
 
 
-## Tech stack
-
-![TrustShare tech stack]
-
+## Tech stack 
 | Layer | Technology 
 |---|---|
 | Frontend | React 18, Vite, TypeScript, Tailwind CSS, React Router, Axios, Recharts, Lucide icons |
@@ -126,22 +122,6 @@ python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 copy .env.example .env
-
-''''
-<details>
-<summary>macOS / Linux</summary>
-
-```bash
-cd backend
-python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-cp .env.example .env
-TS_ADMIN_PASSWORD="choose-a-strong-password" python -m app.cli create-admin admin@example.com "Site Admin"
-uvicorn app.main:app --reload --port 8000
-```
-</details>
-
-Interactive API docs are served at `http://localhost:8000/api/docs`.
 
 ### 2. Frontend
 
