@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🔐 TrustShare
+# TrustShare
 
 ### Share files freely. Keep them private.
 
@@ -8,12 +8,6 @@ An encrypted file-sharing and collaboration platform where every file is locked 
 before it ever touches storage, every share can expire, and every action leaves a trail.
 
 [**Live demo**](https://trustshare-lime.vercel.app/) · [**Admin gate**](https://trustshare-lime.vercel.app/admin/login) · [**Demo video**](https://drive.google.com/file/d/1KQrzR44yzvOOUSZ2tWTn1Qff6twrgKwD/view?usp=sharing)
-
-![Python](https://img.shields.io/badge/Python-3.11+-1e3a8a?style=flat-square)
-![FastAPI](https://img.shields.io/badge/FastAPI-backend-7c6fd6?style=flat-square)
-![React](https://img.shields.io/badge/React-18-1e3a8a?style=flat-square)
-![Encryption](https://img.shields.io/badge/AES--256--GCM-envelope%20encryption-7c6fd6?style=flat-square)
-![License](https://img.shields.io/badge/License-MIT-1e3a8a?style=flat-square)
 
 </div>
 
