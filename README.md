@@ -1,12 +1,10 @@
-<div align="center">
+
 
 <img width="630" height="163" alt="image" src="https://github.com/user-attachments/assets/5eb67b8a-aaaf-4df3-b4cc-d6474a648a91" />
 
 **An encrypted file-sharing and collaboration platform.**
 Every file is locked with its own key before it reaches storage, every share can expire, and every action leaves a trail.
 
-An encrypted file-sharing and collaboration platform where every file is locked with its own key
-before it ever touches storage, every share can expire, and every action leaves a trail.
 
 [**Live demo**](https://trustshare-lime.vercel.app/) · [**Admin gate**](https://trustshare-lime.vercel.app/admin/login) · [**Demo video**](https://drive.google.com/file/d/1KQrzR44yzvOOUSZ2tWTn1Qff6twrgKwD/view?usp=sharing)
 
