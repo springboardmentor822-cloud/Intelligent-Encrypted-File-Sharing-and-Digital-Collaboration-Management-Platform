@@ -58,7 +58,7 @@ Strong File security provided as files are encrypted with AES-256-GCM per-file d
 
 ## How the encryption works
 
-<img width="931" height="800" alt="image" src="https://github.com/user-attachments/assets/d88ae36a-c73c-443d-8478-37d7d8218867" />
+<img width="1100" height="800" alt="image" src="https://github.com/user-attachments/assets/d88ae36a-c73c-443d-8478-37d7d8218867" />
 
 
 **Why envelope encryption?** If the master key is rotated, only the small wrapped keys are re-wrapped, not
