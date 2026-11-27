@@ -1,6 +1,4 @@
-
-
-<img width="1200" height="300" alt="image" src="https://github.com/user-attachments/assets/5eb67b8a-aaaf-4df3-b4cc-d6474a648a91" />
+<img width="1174" height="301" alt="image" src="https://github.com/user-attachments/assets/6a0db034-6bbf-4f46-b769-6590b92f3ee5" />
 
 **An encrypted file-sharing and collaboration platform.**
 Every file is locked with its own key before it reaches storage, every share can expire, and every action leaves a trail.
