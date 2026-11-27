@@ -58,8 +58,8 @@ export default function Landing() {
         <div className="relative mx-auto grid max-w-7xl items-center gap-12 px-4 py-16 sm:px-6 lg:grid-cols-2 lg:py-24">
           <div className="animate-fadein">
             <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-lavender-100 ring-1 ring-white/20 backdrop-blur"><Sparkles className="h-3 w-3" />Secure · Private · Reliable</span>
-            <h1 className="mt-5 text-4xl font-extrabold leading-[1.08] tracking-tight sm:text-5xl lg:text-6xl">Secure File Sharing for a <span className="bg-gradient-to-r from-lavender-200 via-white to-brand-200 bg-clip-text text-transparent">Safer Tomorrow</span></h1>
-            <p className="mt-5 max-w-xl text-lg text-slate-200">Upload, store, and share your important files. Everything is encrypted on the server before it is stored, and you decide who can view or download it, and for how long.</p>
+            <h1 className="mt-5 text-4xl font-extrabold leading-[1.08] tracking-tight sm:text-5xl lg:text-6xl">Share Everything.<span className="bg-gradient-to-r from-lavender-200 via-white to-brand-200 bg-clip-text text-transparent">Expose Nothing.</span></h1>
+            <p className="mt-5 max-w-xl text-lg text-slate-200">Every file gets its own encryption key. Every link can expire, ask for a passcode, or be revoked in one click. Every action leaves a trail..</p>
             <div className="mt-8 flex flex-wrap gap-3"><Link to="/signup" className="btn !bg-white !px-7 !py-3.5 text-base !text-navy-900 hover:!bg-lavender-50">Get Started <ArrowRight className="h-4 w-4" /></Link><a href="#how" className="btn !px-7 !py-3.5 text-base !border !border-white/30 !bg-white/10 !text-white hover:!bg-white/20">See how it works</a></div>
             <ul className="mt-7 flex flex-wrap gap-x-6 gap-y-2 text-sm text-slate-200">{["AES-256 Encrypted Storage", "Passcode-Protected Links", "Audit Logs"].map((x) => <li key={x} className="flex items-center gap-1.5"><CheckCircle2 className="h-4 w-4 text-lavender-300" />{x}</li>)}</ul>
           </div>
