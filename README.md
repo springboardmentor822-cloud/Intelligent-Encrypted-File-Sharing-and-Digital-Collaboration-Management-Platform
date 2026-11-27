@@ -1,15 +1,29 @@
 <div align="center">
 
-# TrustShare
-### Share files freely. Keep them private.
+<img src="docs/trustshare-banner.svg" alt="TrustShare: Share files freely. Keep them private." width="100%">
 
-An encrypted file-sharing and collaboration platform where every file is locked with its own key
-before it ever touches storage, every share can expire, and every action leaves a trail.
+<br>
 
-[**Live demo**](https://trustshare-lime.vercel.app/) · [**Admin gate**](https://trustshare-lime.vercel.app/admin/login) · [**Demo video**](https://drive.google.com/file/d/1KQrzR44yzvOOUSZ2tWTn1Qff6twrgKwD/view?usp=sharing)
+**An encrypted file-sharing and collaboration platform.**
+Every file is locked with its own key before it reaches storage, every share can expire, and every action leaves a trail.
+
+<br>
+
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Open%20App-1e3a8a?style=for-the-badge)](https://trustshare-lime.vercel.app/)
+[![Admin Gate](https://img.shields.io/badge/Admin-Gate-7c6fd6?style=for-the-badge)](https://trustshare-lime.vercel.app/admin/login)
+[![Demo Video](https://img.shields.io/badge/Watch-Demo%20Video-1e3a8a?style=for-the-badge)](https://drive.google.com/file/d/1KQrzR44yzvOOUSZ2tWTn1Qff6twrgKwD/view?usp=sharing)
+
+![Python](https://img.shields.io/badge/Python-3.11+-1e3a8a?style=flat-square)
+![FastAPI](https://img.shields.io/badge/FastAPI-backend-7c6fd6?style=flat-square)
+![React](https://img.shields.io/badge/React-18-1e3a8a?style=flat-square)
+![Encryption](https://img.shields.io/badge/AES--256--GCM-envelope%20encryption-7c6fd6?style=flat-square)
+![License](https://img.shields.io/badge/License-MIT-1e3a8a?style=flat-square)
+
+[Features](#feature-tour) · [Encryption](#how-the-encryption-works) · [Tech stack](#tech-stack) · [Getting started](#getting-started) · [Security](#security-model)
 
 </div>
 
+---
 
 ## Why TrustShare
 
@@ -56,17 +70,14 @@ Strong File security provided as files are encrypted with AES-256-GCM per-file d
 - **Audit logs** with filters by user, file, activity type, status and date range, restricted to admins
 - **Notifications:** in-app bell with unread count and mark-as-read, for new shares, downloads of your shared files, and link-expiry reminders. Optional email delivery over SMTP.
 - **Reports and analytics:** upload, download, sharing, user-activity and security reports, plus storage usage, per-user usage and most-downloaded files, shown as charts
-- **Suspicious activity detection:** rule-based alerts with severity levels (see [Security model](#security-model))
+- **Suspicious activity detection:** rule-based alerts with severity levels 
 - **Encryption and Key Registry:** a live view of key state per file (algorithm, key size, KEK version, key fingerprint, wrapped-key size, status, last access) with a one-click integrity **Verify**
 - **Live threat LED:** a pulsing indicator in the Security Dashboard header showing open alerts
 
-> Admins can see that files exist and review activity, but cannot open users' file contents.
-
----
 
 ## How the encryption works
 
-```
+
  Upload                                                Download
  ──────                                                ────────
  file ──► validate ──► generate DEK (256-bit)          check identity + permission
@@ -79,18 +90,17 @@ Strong File security provided as files are encrypted with AES-256-GCM per-file d
                               │                                    │
         ciphertext ──► storage (local / S3)                send original file over HTTPS
         wrapped DEK + metadata ──► database
-```
+
 
 **Why envelope encryption?** If the master key is rotated, only the small wrapped keys are re-wrapped, not
 every file. If one data key were ever exposed, only that single file is affected.
 
----
 
 ## Tech stack
 
-![TrustShare tech stack](docs/trustshare-tech-stack.svg)
+![TrustShare tech stack]
 
-| Layer | Technology |
+| Layer | Technology 
 |---|---|
 | Frontend | React 18, Vite, TypeScript, Tailwind CSS, React Router, Axios, Recharts, Lucide icons |
 | Backend | Python 3.11+, FastAPI, Uvicorn, Pydantic |
