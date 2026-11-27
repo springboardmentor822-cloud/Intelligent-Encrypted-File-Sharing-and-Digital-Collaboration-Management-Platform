@@ -1,0 +1,32 @@
+services:
+  api:
+    build:
+      context: ./backend
+    environment:
+      TRUSTSHARE_DB: ${TRUSTSHARE_DB:-/data/trustshare.db}
+      TRUSTSHARE_ADMIN_TOKEN: ${TRUSTSHARE_ADMIN_TOKEN:-}
+      TRUSTSHARE_ORIGINS: ${TRUSTSHARE_ORIGINS:-http://localhost:8080}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-trustshare@localhost}
+      TRUSTSHARE_EMAIL_U_OLIVIA: ${TRUSTSHARE_EMAIL_U_OLIVIA:-}
+    volumes:
+      - trustshare-data:/data
+    expose:
+      - "8000"
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    ports:
+      - "${TRUSTSHARE_PORT:-8080}:80"
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  trustshare-data:

@@ -1,0 +1,14 @@
+services:
+  api:
+    env_file:
+      - .env
+    environment:
+      TRUSTSHARE_ADMIN_TOKEN: ${TRUSTSHARE_ADMIN_TOKEN:?Set TRUSTSHARE_ADMIN_TOKEN in .env}
+    read_only: true
+    tmpfs:
+      - /tmp
+
+  frontend:
+    ports:
+      - "${TRUSTSHARE_PORT:-8080}:80"
+

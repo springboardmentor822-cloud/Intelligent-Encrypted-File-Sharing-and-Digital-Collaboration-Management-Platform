@@ -1,4 +1,5 @@
 # TrustShare — Milestone 3
+<<<<<<< HEAD
 
 TrustShare Milestone 3 is a demo dashboard and API for monitoring file activity, keeping an audit trail, notifying users, reporting storage usage, and flagging suspicious behavior.
 
@@ -105,6 +106,67 @@ Set these in the backend process environment before starting the API. They are o
 For the email variable, uppercase the user ID and replace hyphens with underscores. For example, user `u-olivia` maps to `TRUSTSHARE_EMAIL_U_OLIVIA=olivia@example.com`.
 
 Example PowerShell configuration for a local run:
+=======
+
+TrustShare Milestone 3 is a demo dashboard and API for monitoring file activity, keeping an audit trail, notifying users, reporting storage usage, and flagging suspicious behavior.
+
+> **Scope:** This repository contains the Milestone 3 monitoring experience. It does not implement the earlier milestones' file upload, encryption, authentication, or secure-sharing workflows. The dashboard currently uses local demo data; it is not wired to the API. The API is an integration-ready demo that can accept events from those workflows.
+
+## Project overview
+
+TrustShare gives a workspace administrator an operations view of file activity and security events. Its FastAPI service records activity and audit events in SQLite, generates notifications, evaluates configurable detection rules, and exposes reporting and analytics endpoints. A separate React dashboard presents a self-contained visual demo.
+
+## Features
+
+- Workspace dashboard with activity, storage, downloads, sharing, and security views.
+- Activity and audit event recording, with filtering and per-user or per-file audit lookup.
+- In-app notifications and optional SMTP email delivery.
+- Suspicious activity detection for repeated failed logins, excessive downloads, unauthorized access, and expired or revoked link attempts.
+- Security event review and resolution.
+- Activity and security reports, plus file, storage, download, and sharing analytics.
+- Interactive API documentation at `/docs`.
+- SQLite database created and seeded with illustrative demo records on first startup.
+
+## Technologies
+
+- **Frontend:** React 18, Vite, Recharts, Lucide React
+- **Backend:** Python, FastAPI, Uvicorn, Pydantic
+- **Database:** SQLite (Python standard library)
+
+## Repository structure
+
+```text
+.
+├── .github/workflows/       # Automated frontend and backend build checks
+├── backend/                 # FastAPI application and security rules
+├── deploy/nginx/            # Nginx static hosting and API proxy config
+├── docs/                    # Architecture and deployment notes
+├── frontend/                # React dashboard and frontend Dockerfile
+├── scripts/                 # Local development launch scripts (PowerShell)
+├── .env.example             # Docker Compose configuration template
+├── docker-compose.yml       # Local container stack
+├── docker-compose.prod.yml  # Production-oriented Compose overrides
+└── README.md
+```
+
+## Prerequisites
+
+- Python 3.10 or newer
+- Node.js 18 or newer and npm
+
+## Installation
+
+Clone the repository and enter its directory:
+
+```bash
+git clone <repository-url>
+cd TrustShare_Milestone3
+```
+
+### Virtual environment setup and backend dependencies
+
+On Windows PowerShell:
+>>>>>>> cd3f9c3 (Update TrustShare milestone 3)
 
 ```powershell
 $env:TRUSTSHARE_ADMIN_TOKEN = "replace-with-a-local-demo-token"
@@ -121,10 +183,76 @@ Start the API in one terminal (activate the backend virtual environment first):
 cd backend
 python -m venv .venv
 .venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
 pip install -r requirements.txt
+```
+
+On macOS or Linux:
+
+```bash
+cd backend
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+```
+
+Backend requirements are `fastapi` and `uvicorn[standard]`, with version ranges in [`backend/requirements.txt`](backend/requirements.txt).
+
+### Frontend dependencies
+
+In a second terminal, from the repository root:
+
+```bash
+cd frontend
+npm install
+```
+
+Frontend packages and scripts are listed in [`frontend/package.json`](frontend/package.json); the lockfile is included for repeatable installs.
+
+## Database setup
+
+No separate database server or migration command is needed. On API startup, the service creates a SQLite database at `backend/trustshare.db` by default, creates its tables, and seeds illustrative activities, notifications, files, and a security event when the activities table is empty.
+
+Set `TRUSTSHARE_DB` to use a different SQLite file path. The database is local demo data and is excluded from Git.
+
+## Environment variables
+
+Set these in the backend process environment before starting the API. They are optional unless stated otherwise.
+
+| Variable | Purpose | Default |
+| --- | --- | --- |
+| `TRUSTSHARE_DB` | SQLite database file path | `backend/trustshare.db` |
+| `TRUSTSHARE_ADMIN_TOKEN` | If set, required as `X-Admin-Token` on administrator endpoints | Unset (admin endpoints are not protected) |
+| `TRUSTSHARE_ORIGINS` | Comma-separated CORS origins | `http://localhost:5173` |
+| `SMTP_HOST` | SMTP server; enables email delivery when configured | Unset (email disabled) |
+| `SMTP_PORT` | SMTP server port | `587` |
+| `SMTP_USER` | SMTP username; enables STARTTLS login when set | Unset |
+| `SMTP_PASSWORD` | SMTP password used with `SMTP_USER` | Unset |
+| `SMTP_FROM` | Sender address | `trustshare@localhost` |
+| `TRUSTSHARE_EMAIL_<USER_ID>` | Email address for a notification recipient | Unset |
+
+For the email variable, uppercase the user ID and replace hyphens with underscores. For example, user `u-olivia` maps to `TRUSTSHARE_EMAIL_U_OLIVIA=olivia@example.com`.
+
+Example PowerShell configuration for a local run:
+
+```powershell
+$env:TRUSTSHARE_ADMIN_TOKEN = "replace-with-a-local-demo-token"
+$env:TRUSTSHARE_ORIGINS = "http://localhost:5173"
+```
+
+The token only protects endpoints marked as administrator endpoints. This demo does not provide user authentication or authorization for activity creation and notification routes; do not expose it as a production service without integrating trusted identity and access control.
+
+## How to run the project
+
+Start the API in one terminal (activate the backend virtual environment first):
+
+```bash
+cd backend
 uvicorn app.main:app --reload
 ```
 
+<<<<<<< HEAD
 The API creates a local SQLite demo database at `backend/trustshare.db` and seeds illustrative activity, notification, file, and security records on first run. SQLite is used as a self-contained stand-in because this checkout contains no existing PostgreSQL or MongoDB configuration. Set `TRUSTSHARE_ADMIN_TOKEN` and send `X-Admin-Token` to protect administrator endpoints. The browser dashboard uses realistic local demo data and remains usable if the API is offline.
 The API is available at `http://127.0.0.1:8000`. Check `http://127.0.0.1:8000/health` or browse the interactive docs at `http://127.0.0.1:8000/docs`.
 
@@ -132,10 +260,17 @@ Optional email delivery uses `SMTP_HOST`, `SMTP_PORT` (default `587`), `SMTP_USE
 Start the dashboard in a second terminal:
 
 ## API overview
+=======
+The API is available at `http://127.0.0.1:8000`. Check `http://127.0.0.1:8000/health` or browse the interactive docs at `http://127.0.0.1:8000/docs`.
+
+Start the dashboard in a second terminal:
+
+>>>>>>> cd3f9c3 (Update TrustShare milestone 3)
 ```bash
 cd frontend
 npm run dev
 ```
+<<<<<<< HEAD
 
 Vite prints the local dashboard URL, usually `http://localhost:5173`. The dashboard is presently a standalone visual demo and does not call the backend API.
 
@@ -180,6 +315,60 @@ The activity endpoint is the integration seam for existing authentication, file-
 Date filters accept timestamp strings comparable to the stored ISO 8601 timestamps. `limit` on activity and audit listings ranges from 1 to 500.
 
 More than 5 failed logins within 10 minutes; more than 20 downloads within 5 minutes; repeated unauthorized access; and repeated attempts to use expired or revoked links. Tune thresholds in `backend/app/security_monitoring/detection.py`.
+=======
+
+Vite prints the local dashboard URL, usually `http://localhost:5173`. The dashboard is presently a standalone visual demo and does not call the backend API.
+
+To create a production frontend build:
+
+```bash
+cd frontend
+npm run build
+```
+
+### Run with Docker Compose
+
+Install Docker with the Compose plugin, copy `.env.example` to `.env`, and set a private `TRUSTSHARE_ADMIN_TOKEN`. Then run:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d
+```
+
+Open `http://localhost:8080`. The API is available through the same host at `/health` and `/docs`. Stop the stack with:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml down
+```
+
+The database persists in the `trustshare-data` volume. See [`docs/deployment.md`](docs/deployment.md) and [`docs/architecture.md`](docs/architecture.md) for details.
+
+## API endpoints
+
+Administrator endpoints require `X-Admin-Token` when `TRUSTSHARE_ADMIN_TOKEN` is set. If the variable is unset, the current implementation allows those requests without a token.
+
+| Method | Endpoint | Access | Purpose |
+| --- | --- | --- | --- |
+| `GET` | `/health` | Public | Health status |
+| `POST` | `/activities` | Event ingestion | Record activity, append audit entry, trigger detection and relevant notifications |
+| `GET` | `/activities` | Admin | List events; supports `user_id`, `activity_type`, `status`, `start`, `end`, `limit` filters |
+| `GET` | `/audit-logs` | Admin | Search audit entries; supports `user_id`, `file_id`, `activity_type`, `status`, `start`, `end`, `limit` |
+| `GET` | `/audit-logs/user/{user_id}` | Admin | Audit history for a user |
+| `GET` | `/audit-logs/file/{file_id}` | Admin | Audit history for a file |
+| `GET` | `/notifications` | Demo user scope | List notifications; supports `user_id` and `unread_only` |
+| `PATCH` | `/notifications/{notification_id}/read` | Demo user scope | Mark a user's notification as read; accepts `user_id` |
+| `GET` | `/security/events` | Admin | List events; supports `severity`, `event_type`, `status`, `user_id` |
+| `PATCH` | `/security/events/{event_id}/resolve` | Admin | Resolve a security event |
+| `GET` | `/reports/activity` | Admin | Activity totals and events; supports `user_id`, `activity_type`, `start`, `end` |
+| `GET` | `/reports/security` | Admin | Security event totals by severity; supports `start`, `end` |
+| `GET` | `/analytics/storage` | Admin | Overall storage usage |
+| `GET` | `/analytics/users/storage` | Admin | Storage grouped by file owner |
+| `GET` | `/analytics/files` | Admin | File counts, popular files, uploads by date |
+| `GET` | `/analytics/downloads` | Admin | Download totals and popular files |
+| `GET` | `/analytics/sharing` | Admin | Shared file and link event counts |
+
+Date filters accept timestamp strings comparable to the stored ISO 8601 timestamps. `limit` on activity and audit listings ranges from 1 to 500.
+
+>>>>>>> cd3f9c3 (Update TrustShare milestone 3)
 ## Sample API requests
 
 Check service health:
