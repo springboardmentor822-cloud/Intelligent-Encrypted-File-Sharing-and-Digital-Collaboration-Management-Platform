@@ -1,7 +1,6 @@
 <div align="center">
 
 # TrustShare
-
 ### Share files freely. Keep them private.
 
 An encrypted file-sharing and collaboration platform where every file is locked with its own key
@@ -11,40 +10,17 @@ before it ever touches storage, every share can expire, and every action leaves 
 
 </div>
 
----
-
-## Contents
-
-- [Why TrustShare](#why-trustshare)
-- [Feature tour](#feature-tour)
-- [How the encryption works](#how-the-encryption-works)
-- [Tech stack](#tech-stack)
-- [Project structure](#project-structure)
-- [Getting started](#getting-started)
-- [Configuration](#configuration)
-- [API at a glance](#api-at-a-glance)
-- [Security model](#security-model)
-- [Testing](#testing)
-- [Milestones](#milestones)
-- [Known limitations](#known-limitations)
-- [License](#license)
-
----
 
 ## Why TrustShare
 
-Most file-sharing tools ask you to trust that nobody on the other side can read your documents.
-TrustShare is built so that trust is not required:
+**A secure file sharing platform**:
+Strong File security provided as files are encrypted with AES-256-GCM per-file data key wrapped by a versioned master key before reaching storage.
 
 - **Files are encrypted before storage.** Whatever sits on disk or in a bucket is unreadable ciphertext.
 - **Sharing is deliberate.** Links expire, can be revoked, can require a passcode, and can be limited to viewing only.
 - **Everything is observable.** Logins, downloads, shares and failures are recorded, and suspicious patterns raise alerts for admins.
 
----
-
-## Feature tour
-
-### 🔒 Protecting files
+### Protecting files
 
 | Feature | What it does |
 |---|---|
@@ -54,7 +30,7 @@ TrustShare is built so that trust is not required:
 | **Key rotation** | Rotating the master key re-wraps the data keys without re-encrypting any file. Older files stay readable. |
 | **Upload checks** | File type and size limits, content-versus-extension validation, and per-user storage quotas. |
 
-### 🤝 Sharing
+### Sharing
 
 | Feature | What it does |
 |---|---|
@@ -65,7 +41,7 @@ TrustShare is built so that trust is not required:
 | **Passcode protection** | Optional 4–64 character passcode, stored as an Argon2id hash. Wrong attempts are rate-limited, recorded and flagged. |
 | **Hashed tokens** | Only a SHA-256 hash of each link token is stored. The raw token is never saved. |
 
-### 🗂️ Everyday workspace
+### Everyday workspace
 
 - Dashboard with **My Files, Recent, Favorites, Shared with Me, Shared by Me, Trash, Storage** and **Activity**
 - Folders, search and filtering, file preview, restore from Trash
@@ -73,7 +49,7 @@ TrustShare is built so that trust is not required:
 - Profile settings: password change, sign-in activity, account controls
 - Sign in with email and password, or with **Google** or **Microsoft**. Email verification and password reset are included.
 
-### 🛡️ Admin and monitoring
+### Admin and monitoring
 
 - **Admin Gate:** a password-protected entry to the admin panel. A correct password issues a scoped, 60-minute grant tied to that user, kept in `sessionStorage` only.
 - **Activity monitoring** of logins, failures, uploads, downloads, shares, link events and unauthorized attempts, with user, file, status, IP and timestamp
