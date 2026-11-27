@@ -1,25 +1,14 @@
 <div align="center">
 
-<img src="docs/trustshare-banner.svg" alt="TrustShare: Share files freely. Keep them private." width="100%">
-
-<br>
+<img width="630" height="163" alt="image" src="https://github.com/user-attachments/assets/5eb67b8a-aaaf-4df3-b4cc-d6474a648a91" />
 
 **An encrypted file-sharing and collaboration platform.**
 Every file is locked with its own key before it reaches storage, every share can expire, and every action leaves a trail.
 
-<br>
+An encrypted file-sharing and collaboration platform where every file is locked with its own key
+before it ever touches storage, every share can expire, and every action leaves a trail.
 
-[![Live Demo](https://img.shields.io/badge/Live%20Demo-Open%20App-1e3a8a?style=for-the-badge)](https://trustshare-lime.vercel.app/)
-[![Admin Gate](https://img.shields.io/badge/Admin-Gate-7c6fd6?style=for-the-badge)](https://trustshare-lime.vercel.app/admin/login)
-[![Demo Video](https://img.shields.io/badge/Watch-Demo%20Video-1e3a8a?style=for-the-badge)](https://drive.google.com/file/d/1KQrzR44yzvOOUSZ2tWTn1Qff6twrgKwD/view?usp=sharing)
-
-![Python](https://img.shields.io/badge/Python-3.11+-1e3a8a?style=flat-square)
-![FastAPI](https://img.shields.io/badge/FastAPI-backend-7c6fd6?style=flat-square)
-![React](https://img.shields.io/badge/React-18-1e3a8a?style=flat-square)
-![Encryption](https://img.shields.io/badge/AES--256--GCM-envelope%20encryption-7c6fd6?style=flat-square)
-![License](https://img.shields.io/badge/License-MIT-1e3a8a?style=flat-square)
-
-[Features](#feature-tour) · [Encryption](#how-the-encryption-works) · [Tech stack](#tech-stack) · [Getting started](#getting-started) · [Security](#security-model)
+[**Live demo**](https://trustshare-lime.vercel.app/) · [**Admin gate**](https://trustshare-lime.vercel.app/admin/login) · [**Demo video**](https://drive.google.com/file/d/1KQrzR44yzvOOUSZ2tWTn1Qff6twrgKwD/view?usp=sharing)
 
 </div>
 
