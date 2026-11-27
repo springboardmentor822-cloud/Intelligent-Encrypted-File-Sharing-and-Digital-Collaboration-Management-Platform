@@ -39,5 +39,8 @@ npm run dev
 
 - **Per-file encryption keys**: Every file receives a unique AES-256-GCM data encryption key (DEK). The versioned master key (KEK) wraps the DEK instead of directly encrypting file contents. Encryption keys are managed separately from stored ciphertext. Key rotation re-wraps the data keys without re-encrypting the files. Each file ID is also used as Additional Authenticated Data (AAD) to prevent ciphertext from being swapped between files.
 
+Tech Stack: <img width="787" height="484" alt="image" src="https://github.com/user-attachments/assets/67fbed87-6537-46b8-8f4c-011fd2726828" />
+
+
 **Demo Video Screen Recording of Website working and Admin Gate:** 
 Watch the demo here: https://drive.google.com/file/d/1KQrzR44yzvOOUSZ2tWTn1Qff6twrgKwD/view?usp=sharing
