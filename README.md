@@ -9,7 +9,7 @@ Every file is locked with its own key before it reaches storage, every share can
 
 [**Live demo**](https://trustshare-lime.vercel.app/) · [**Admin gate**](https://trustshare-lime.vercel.app/admin/login) · [**Demo video**](https://drive.google.com/file/d/1KQrzR44yzvOOUSZ2tWTn1Qff6twrgKwD/view?usp=sharing)
 ## TrustShare: **A secure file sharing platform**:
-Strong File security provided as files are encrypted with AES-256-GCM per-file data key wrapped by a versioned master key before reaching storage.
+- Strong File security provided as files are encrypted with AES-256-GCM per-file data key wrapped by a versioned master key before reaching storage.
 
 - **Files are encrypted before storage.** Whatever sits on disk or in a bucket is unreadable ciphertext.
 - **Sharing is deliberate.** Links expire, can be revoked, can require a passcode, and can be limited to viewing only.
