@@ -1,65 +1,94 @@
-# TrustShare: Secure File-Sharing System
+# TrustShare — Intelligent Encrypted File Sharing and Digital Collaboration Management Platform
 
-FastAPI + Next.js platform with server-side **AES-256-GCM envelope encryption**, JWT/MFA/OAuth2 authentication,
-role-based access control, expiring and revocable share links, audit logging, reports, storage analytics and
-rule-based suspicious-activity detection.
+**Live demo:** https://52-64-46-232.nip.io
 
-## Run it
+> The demo runs on a single AWS EC2 server and may be stopped outside demo times to save cost.
 
-```
-python scripts/generate_env.py        # first time only: creates .env with random secrets
-docker compose up -d                  # start everything
-docker compose ps                     # check all services are running
-```
+TrustShare is a secure file-sharing platform. Every file is encrypted before it is stored, access is controlled by user roles, and every share link can be limited, made view-only, or revoked at any time. Administrators get audit logs, upload reports, security monitoring and analytics.
 
-| What | Address |
+## Features
+
+- **Server-side AES-256-GCM envelope encryption** – every file is encrypted before it is stored; the master key is held in AWS KMS (or locally in development), with versioned keys for rotation.
+- **Secure sharing links** – expiring links, view-only links that show the decrypted file but refuse downloads, revocable links (revoked links return 410), and unknown links return 404.
+- **Suspicious-activity detection** – rule-based detection feeding the security monitoring dashboard.
+- **Upload protection** – executable files are rejected, and files whose content does not match their extension are blocked.
+- **Role-based access control** – normal users are blocked from admin overview, audit logs, upload reports, security monitoring and analytics.
+- **Audit logs and admin dashboards** – activity tracking, upload reports, storage analytics, security monitoring summary and analytics overview.
+- **File lifecycle** – soft delete and permanent delete.
+- **Authentication** – JWT access and refresh tokens, multi-factor authentication (MFA), and optional Google and Microsoft OAuth2 sign-in.
+- **Storage quotas and upload limits** – configurable per-user quota and maximum upload size.
+
+## Tech stack
+
+| Layer | Technology |
 |---|---|
-| App | http://localhost:3000 |
-| API documentation | http://localhost:8000/docs |
-| Emails sent by the app (dev) | http://localhost:8025 |
-
-Encrypted files are stored in `./storage_data` (unreadable `.bin` files). Back up `MASTER_KEYS` from `.env`:
-without it encrypted files cannot be decrypted. Never run `docker compose down -v` (it deletes all data).
-
-**First admin:** sign in with the admin account created at first start (`ADMIN_EMAIL` / `ADMIN_PASSWORD` in `.env`),
-or promote any account:
-`docker compose exec postgres psql -U trustshare -d trustshare -c "UPDATE users SET role='admin' WHERE email='you@example.com';"`
+| Frontend | Next.js, Tailwind CSS |
+| Backend | Python, FastAPI, Alembic migrations, pytest |
+| Databases | PostgreSQL 16, MongoDB 7, Redis 7 |
+| File storage | AWS S3 (MinIO in development) |
+| Key management | AWS KMS (local master keys in development) |
+| Web server | nginx (TLS termination, single public entry point) |
+| Certificates | Let's Encrypt |
+| Infrastructure | Docker Compose on AWS EC2 (Ubuntu 24.04) |
 
 ## Architecture
 
 ```
-Next.js (Tailwind, Axios, Recharts) --HTTPS--> FastAPI --+--> PostgreSQL  users, files, versions, wrapped keys, shares, notifications
-                                                          +--> MongoDB     audit, login, security-event, access-attempt, download logs
-                                                          +--> Redis       sessions, rate limits, lockouts, detection counters, cache
-                                                          +--> Storage     encrypted files: local folder (dev) or AWS S3 (production)
+Browser ──HTTPS──> nginx ──> frontend (Next.js)
+                        └──> backend API (/api/v1) ──> PostgreSQL, MongoDB, Redis
+                                                  ├──> AWS S3 (encrypted files)
+                                                  └──> AWS KMS (master key)
 ```
 
-Upload: validate (type, size, magic bytes) -> new random 256-bit key -> AES-256-GCM encrypt -> store ciphertext ->
-store the **wrapped** key + metadata in PostgreSQL. Download: authenticate -> check ownership/permission ->
-fetch -> unwrap key -> decrypt in memory and verify the integrity tag -> return. A tampered file is rejected and
-raises a critical security alert. Details: `docs/KEY_MANAGEMENT.md`.
+In production only nginx is reachable from the internet (ports 80 and 443). The databases are not published, and the server reaches S3 and KMS through an IAM role, so no AWS access keys are stored in the app.
 
-## Roles
-- **admin:** Admin Dashboard (users, file metadata, sharing reports, security dashboard, reports, storage analytics,
-  security monitoring, audit logs, notification management, system and key management). Cannot read other users' file contents.
-- **user:** upload, organise, share, personal analytics and activity, security page.
-- **guest:** read-only access to files shared with them.
+## Run locally
 
-RBAC is enforced on the server for every request. Denied attempts are logged and counted on the Security Dashboard.
+Requirements: Docker Desktop (Compose v2.24 or newer) and Python 3.
 
-## Milestones
-| # | Delivered |
-|---|---|
-| 1 | Docker services, FastAPI + Next.js, registration/login (bcrypt), JWT with refresh rotation, sessions, TOTP MFA, OAuth2, password reset, RBAC, validated uploads, folders, search, versions, trash, dashboard |
-| 2 | AES-256-GCM, per-file keys, envelope key management and rotation (local keys or AWS KMS), encrypted storage (local / S3), encrypted retrieval, share links (hashed tokens, expiry, revoke, view/download, limits), direct shares |
-| 3 | Audit logging and API with filters, notifications (in-app + email + history + admin management), reports (uploads, downloads, sharing, user activity, security), storage analytics, suspicious-activity detection with alert workflow, unified admin dashboard. See `docs/MILESTONE3.md` |
-| 4 | Dockerfiles, production overlay with nginx/TLS, CI, automated tests, end-to-end smoke test, security test plan, AWS deployment guide, API and database documentation |
+```bash
+git clone --branch ramcharan-trust-share https://github.com/springboardmentor822-cloud/Intelligent-Encrypted-File-Sharing-and-Digital-Collaboration-Management-Platform.git trustshare
+cd trustshare
 
-## Documentation
-`docs/API.md` · `docs/DATABASE.md` · `docs/KEY_MANAGEMENT.md` · `docs/MILESTONE3.md` · `docs/TESTING.md` · `docs/DEPLOYMENT_AWS.md`
+# Create .env with random secrets (or copy .env.example to .env and fill it in)
+python scripts/generate_env.py
 
-## Tests
+docker compose up -d --build
 ```
-cd backend && pip install -r requirements.txt && pytest -q     # unit tests
-py scripts/smoke_test.py                                        # end-to-end test of the running app
+
+Then open:
+
+- App: http://localhost:3000
+- API: http://localhost:8000/api/v1
+- MailHog (catches all emails in development): http://localhost:8025
+
+Sign in with the `ADMIN_EMAIL` and `ADMIN_PASSWORD` from your `.env`.
+
+## Deploy to production
+
+The production overlay adds nginx with HTTPS, removes all database ports, bakes the code into the images and switches file storage to AWS S3:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 ```
+
+Full AWS steps (S3 bucket, KMS key, IAM role, EC2, certificate and production `.env`) are in [docs/DEPLOYMENT_AWS.md](docs/DEPLOYMENT_AWS.md).
+
+## Testing
+
+End-to-end smoke test against any running instance:
+
+```bash
+python scripts/smoke_test.py http://localhost:8000/api/v1
+```
+
+It checks sharing links, revocation, role-based access, upload validation and permanent deletion. Backend unit tests run with pytest from the `backend` folder.
+
+## Security notes
+
+- Never commit `.env`, `*.pem` key files, `storage_data/` or `deploy/certs/` (all listed in `.gitignore`).
+- In production set `SEED_DEMO_USERS=false` and use strong, random secrets.
+
+## License
+
+See [LICENSE](LICENSE).
