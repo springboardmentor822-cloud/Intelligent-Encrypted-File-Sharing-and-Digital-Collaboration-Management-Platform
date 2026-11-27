@@ -8,8 +8,6 @@ Every file is locked with its own key before it reaches storage, every share can
 <div align="justify">
 
 [**Live demo**](https://trustshare-lime.vercel.app/) · [**Admin gate**](https://trustshare-lime.vercel.app/admin/login) · [**Demo video**](https://drive.google.com/file/d/1KQrzR44yzvOOUSZ2tWTn1Qff6twrgKwD/view?usp=sharing)
-
-
 ## Why TrustShare
 
 **A secure file sharing platform**:
@@ -18,7 +16,6 @@ Strong File security provided as files are encrypted with AES-256-GCM per-file d
 - **Files are encrypted before storage.** Whatever sits on disk or in a bucket is unreadable ciphertext.
 - **Sharing is deliberate.** Links expire, can be revoked, can require a passcode, and can be limited to viewing only.
 - **Everything is observable.** Logins, downloads, shares and failures are recorded, and suspicious patterns raise alerts for admins.
-
 ### Protecting files
 
 | Feature | What it does |
@@ -62,19 +59,7 @@ Strong File security provided as files are encrypted with AES-256-GCM per-file d
 
 ## How the encryption works
 
-
- Upload                                                Download
- ──────                                                ────────
- file ──► validate ──► generate DEK (256-bit)          check identity + permission
-                              │                                    │
-                  encrypt file with DEK                  load ciphertext + wrapped DEK
-              (AES-256-GCM, fresh nonce,                           │
-               file ID as AAD)                          unwrap DEK with versioned KEK
-                              │                                    │
-                  wrap DEK with versioned KEK            decrypt in memory + verify tag
-                              │                                    │
-        ciphertext ──► storage (local / S3)                send original file over HTTPS
-        wrapped DEK + metadata ──► database
+<img width="931" height="608" alt="image" src="https://github.com/user-attachments/assets/d88ae36a-c73c-443d-8478-37d7d8218867" />
 
 
 **Why envelope encryption?** If the master key is rotated, only the small wrapped keys are re-wrapped, not
@@ -142,13 +127,7 @@ python -m venv .venv
 pip install -r requirements.txt
 copy .env.example .env
 
-# create your first admin account
-$env:TS_ADMIN_PASSWORD = "choose-a-strong-password"
-python -m app.cli create-admin admin@example.com "Site Admin"
-
-uvicorn app.main:app --reload --port 8000
-```
-
+''''
 <details>
 <summary>macOS / Linux</summary>
 
