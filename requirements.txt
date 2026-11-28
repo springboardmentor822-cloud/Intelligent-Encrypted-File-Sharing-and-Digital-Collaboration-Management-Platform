@@ -1,0 +1,13 @@
+fastapi
+uvicorn[standard]
+sqlalchemy
+email-validator
+pwdlib[argon2]
+python-jose[cryptography]
+python-dotenv
+python-multipart
+psycopg[binary]
+pymongo
+redis
+cryptography
+boto3==1.43.123
